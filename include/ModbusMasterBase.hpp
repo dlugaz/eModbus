@@ -1,0 +1,99 @@
+/*
+ * ModbusDriver.hpp
+ *
+ *  Created on: Jul 14, 2025
+ *      Author: kdluzynski
+ */
+
+#ifndef INC_MODBUSMASTERDRIVER_HPP_
+#define INC_MODBUSMASTERDRIVER_HPP_
+
+
+#include <IStreamDevice.hpp>
+#include <map>
+
+#include "ModbusFrame.hpp"
+#include <mutex>
+
+#include "ModbusRegisterBuffer.hpp"
+#include "ModbusUtils.hpp"
+
+namespace eModbus {
+	class MasterBase{
+	protected:
+		explicit MasterBase(IStreamDevice& serial_device);
+		IStreamDevice& _streamDevice;
+		bool isTCP = false;
+		std::map<uint8_t,uint32_t> devicesBaudratesMap;
+
+	public:
+		static constexpr std::array<uint32_t, 10> baudrates{
+			9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 1000000, 2000000
+		};
+		uint32_t deviceResponseTime_ms = 30;
+		const std::map<uint8_t, uint32_t>& devices_baudrates_map() const {
+			return devicesBaudratesMap;
+		}
+
+
+		class Exception :public std::runtime_error {
+		public:
+			explicit Exception(const std::string &message)
+			:std::runtime_error(message){};
+		};
+		class ModbusException:public Exception{
+		public:
+			eModbus::Frame::ExceptionCode _exception_code;
+			explicit ModbusException(const eModbus::Frame::ExceptionCode exception_code)
+			:Exception("Modbus Exception Code "+ std::to_string(exception_code)),_exception_code(exception_code)
+			{};
+		};
+		class InvalidFrame:public Exception{
+		public:
+			eModbus::Frame::ValidationStatus _validation_status;
+			explicit InvalidFrame(const eModbus::Frame::ValidationStatus validation_status)
+			:Exception("Validation Failed Code "+to_string(validation_status)),
+			_validation_status(validation_status)
+			{};
+		};
+		class StreamDeviceFailure:public Exception{
+		public:
+			SerialError _device_error;
+			explicit StreamDeviceFailure(const SerialError device_error)
+			:Exception("Stream Failure Code:" + to_string(device_error)),
+			_device_error(device_error)
+			{};
+		};
+		class ResponseTimeout:public Exception{
+
+		};
+		static eModbus::MasterBase TCP(IStreamDevice& serial_device);
+
+		static eModbus::MasterBase RTU(IStreamDevice& serial_device);
+
+
+		std::vector<uint16_t> read(uint8_t slave_ID, RegisterType register_type,uint16_t start_address,uint8_t quantity);
+
+		void read(uint8_t slave_ID, const eModbus::RegisterBufferView &outBuffer);
+
+		void write(uint8_t slave_ID, RegisterType register_type,uint16_t start_address,std::span<uint16_t> values);
+
+		void sendFrame(eModbus::Frame &send_frame, uint16_t timeout_ms) const;
+
+		void receiveFrame(eModbus::Frame &receive_frame, uint16_t timeout_ms) const;
+
+		void sendReceiveFrame(eModbus::Frame &send_frame, eModbus::Frame &receive_frame);
+
+		uint32_t getResponseTimeout(eModbus::Frame send_frame, unsigned long baud) const;
+
+		uint32_t detectBaud(uint8_t slave_ID, std::span<const uint32_t> baudrates);
+
+		std::map<uint8_t, uint32_t> scanForDevices(std::span<uint32_t> baudrates, uint16_t timeoutMs = 10);
+
+		static Frame::FunctionCode getFunctionCode(bool isRead,RegisterType register_type);
+
+	};
+}
+
+
+#endif /* INC_MODBUSMASTERDRIVER_HPP_ */
