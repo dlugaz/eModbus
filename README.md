@@ -10,7 +10,10 @@ I started it, because I had multiple modbus devices and ended up reimplementing 
 
 * zero cost abstractions
 * low resources footprint
-* modular
+* modular:
+  * lightweight module for frame parsing
+  * lightweight module for embedded basic drivers
+  * efficient but not-so-lightweight module for ease of use. Using as much 
 * easy to use
 
 ## Contents:
@@ -20,6 +23,21 @@ I started it, because I had multiple modbus devices and ended up reimplementing 
 * **ModbusMasterBase.hpp** - the simplest modbus master driver. Allows to send and receive modbus frames via IStreamDevice
 * **ModbusRegisterBuffer.hpp** - utility that simplify access to data coded in the registers. Allows to convert the registers to custom data such as (u)int8/16/32, ascii, byte buffers or user defined.
 * **ModbusMasterTag.hpp** - modbus master driver that's tag based. Define a repository of tags with register types and numbers, and read them efficiently without a thought about modbus internals.
+
+## Current State:
+**This is NOT production ready library**
+* ModbusFrame - OK. TODOs:
+  * needs separation into frame and frameview
+  * it would be great to be able to create a constexpr frames.
+* ModbusMasterBase - OK. TODOs:
+  * has a FreeRTOS only mutex.
+* ModbusRegisterBuffer - OK TODOs:
+  * it would be great to be able to create a constexpr frames.
+* ModbusTag - WIP. TODOs:
+  * resolve how to store and retrieve tag information efficiently
+  * resolve how to deal with async calls (for Qt driver) 
+* ModbusSlaveBase - TODO
+* ModbusSlaveTag - TODO
 
 ## Use Cases:
 TODO
