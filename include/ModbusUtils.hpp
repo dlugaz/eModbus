@@ -8,6 +8,24 @@
 #include <algorithm> // For std::fill
 
 namespace eModbus {
+    inline char nibbleToHexChar(uint8_t nibble) {
+        if (nibble < 10) {
+            return '0' + nibble;
+        } else {
+            return 'A' + (nibble - 10);
+        }
+    }
+
+    inline std::string toString(std::span<uint8_t> _dataBuffer) {
+        std::string result;
+        result.reserve(3 * _dataBuffer.size());
+        for (uint8_t byte: _dataBuffer) {
+            result += nibbleToHexChar(byte >> 4);
+            result += nibbleToHexChar(byte & 0x0F);
+            result += ' ';
+        }
+        return result;
+    }
     constexpr uint16_t MAX_MODBUS_REGISTERS = 125;
     enum class RegisterType{
         Coil,
