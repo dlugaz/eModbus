@@ -8,9 +8,6 @@
 
 namespace eModbus {
 class FrameView {
-        class Exception : std::exception {
-        };
-
     protected:
         std::span<uint8_t> _internalDataBuffer;
 
@@ -157,41 +154,15 @@ class FrameView {
         std::span<uint8_t> rtuBuffer()  {
             if (_dataBufferTCP) {
                 return _dataBuffer().subspan(RTU_HEADER_START_POSITION);
-            }else {
+            }
+            else {
                 return _dataBuffer();
             }
-
         }
 
-        explicit FrameView(std::span<uint8_t> buffer, bool request_type)
-        : _internalDataBuffer(buffer), _isRequest(request_type) {}
+        explicit FrameView(std::span<uint8_t> buffer, bool request_type, bool isTCP)
+        : _internalDataBuffer(buffer),_isRequest(request_type), _dataBufferTCP(isTCP) {}
 
-        //FrameView musi wiedziec czy jest TCP czy RTU
-        FrameView &setRawRtuData(std::span<uint8_t> RTU_Data, bool is_request) {
-            isRequest(is_request);
-            _internalDataBuffer = RTU_Data;
-            _dataBufferTCP = false;
-            MBAPLength(RTULengthWithoutCRC());
-            //			}else{
-            //				//TODO set flag that we are using external buffer for rtu buffer
-            //				// set rtu buffer span
-            //				_rtuDataBuffer = RTU_Data;
-            //			}
-            return *this;
-        }
-
-        FrameView &setRawTcpData(std::span<const uint8_t> TCP_Data, bool is_request, bool copy = true) {
-            //			if(copy){
-            isRequest(is_request);
-            size_t copy_count = std::min(TCP_Data.size(), _dataBuffer().size());
-            std::memcpy(_dataBuffer().data(), TCP_Data.data(), copy_count);
-            //			}else{
-            //				//TODO set flag that we are using external buffer
-            //				externalDataBuffer = true;
-            //				_dataBuffer() = TCP_Data;
-            //			}
-            return *this;
-        }
 
         bool isRequest() const {
             return _isRequest;
@@ -401,7 +372,7 @@ class FrameView {
         };
 
         bool isException() {
-            return (rtuBuffer()[FUNCTION_CODE] & 0x80) != 0;
+            return (rtuBuffer()[FRAME_POS_RTU::FUNCTION_CODE] & 0x80) != 0;
         }
 
         FrameView &isException(bool setFlag) {
@@ -444,8 +415,9 @@ class FrameView {
             return validateCommon();
         }
 
+
         ValidationStatus validateCommon() {
-            if (rtuBuffer().size()<calculateRTULength())
+            if (rtuBuffer().size() < MINIMAL_RTU_SIZE || rtuBuffer().size()<calculateRTULength())
                 return ValidationStatus::RTUBufferTooShort;
             uint8_t function_code = static_cast<uint8_t>(functionCode());
             if (function_code == 0)
@@ -469,10 +441,9 @@ class FrameView {
             _isRequest = false;
             return *this;
         }
-        //TODO this has a side effect of modification of the frame. Maybe rename to createRtuFrame?
+
         std::span<const uint8_t> rtuFrame() {
-            uint16_t rtuLength = calculateRTULength();
-            appendCRC();
+            const uint16_t rtuLength = calculateRTULength();
             return rtuBuffer().subspan(0, rtuLength);
         }
 
@@ -681,6 +652,7 @@ class FrameView {
         static constexpr uint8_t WRITE_DATA_SIZE = 2;
         static constexpr uint8_t CRC_SIZE = 2;
         static constexpr uint8_t EXCEPTION_CODE_SIZE = 1;
+        static constexpr uint8_t MINIMAL_RTU_SIZE = RTU_HEADER_SIZE + CRC_SIZE;
 
     };
 
