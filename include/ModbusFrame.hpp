@@ -24,24 +24,29 @@ namespace eModbus {
     class Frame : public FrameView {
 
     private:
-        std::array<uint8_t, MAX_MODBUS_FRAME_SIZE> _internalDataBuffer = {0};
+        std::array<uint8_t, MAX_MODBUS_FRAME_SIZE> _internalBuffer = {0};
         std::span<uint8_t> _dataBuffer() override {
-            return std::span<uint8_t> (_internalDataBuffer);
+            return std::span<uint8_t> (_internalBuffer);
         }
 
         std::span<const uint8_t> _dataBuffer() const override {
-            return std::span<const uint8_t> (_internalDataBuffer);
+            return std::span<const uint8_t> (_internalBuffer);
         }
 
     public:
         explicit Frame(bool isRequest) : FrameView(Frame::_dataBuffer(),isRequest,true) {
         };
         explicit Frame(FrameView& view)
-            : FrameView(Frame::_dataBuffer(), view.isRequest(), true) // Initialize base class with Frame's buffer and FrameView's state
+            : FrameView(Frame::_dataBuffer(), view.isRequest(), true)
         {
+            if (view.isTCPFrame()) {
+                this->setRawTcpData(view.buffer());
+            }else {
+                this->setRawRtuData(view.rtuBuffer());
+            }
             const std::span<const uint8_t> source_buffer = view.buffer();
-            const size_t copy_count = std::min(source_buffer.size(), _internalDataBuffer.size());
-            std::memcpy(_internalDataBuffer.data(), source_buffer.data(), copy_count);
+            const size_t copy_count = std::min(source_buffer.size(), _internalBuffer.size());
+            std::memcpy(_internalBuffer.data(), source_buffer.data(), copy_count);
         }
 
         Frame &setRawRtuData(std::span<uint8_t> RTU_Data, bool is_request) {

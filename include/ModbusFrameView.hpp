@@ -9,17 +9,17 @@
 namespace eModbus {
 class FrameView {
     protected:
-        std::span<uint8_t> _internalDataBuffer;
+        std::span<uint8_t> _externalBufferSpan;
 
         bool _isRequest = false;
         bool _dataBufferTCP = false;
 
         virtual std::span<uint8_t> _dataBuffer() {
-            return std::span<uint8_t> (_internalDataBuffer);
+            return std::span<uint8_t> (_externalBufferSpan);
         }
 
         virtual std::span<const uint8_t> _dataBuffer() const {
-            return std::span<const uint8_t> (_internalDataBuffer);
+            return std::span<const uint8_t> (_externalBufferSpan);
         }
         enum FRAME_POS_TCP {
             TRANSACTION_ID = 0,
@@ -72,6 +72,10 @@ class FrameView {
             ReadDeviceIdentification = 0x0E,
             Invalid = 0
         };
+
+        bool isTCPFrame() const {
+            return _dataBufferTCP;
+        }
 
 
         static uint16_t calculateModbusCRC(const std::span<const uint8_t> data) {
@@ -161,7 +165,7 @@ class FrameView {
         }
 
         explicit FrameView(std::span<uint8_t> buffer, bool request_type, bool isTCP)
-        : _internalDataBuffer(buffer),_isRequest(request_type), _dataBufferTCP(isTCP) {}
+        : _externalBufferSpan(buffer),_isRequest(request_type), _dataBufferTCP(isTCP) {}
 
 
         bool isRequest() const {
