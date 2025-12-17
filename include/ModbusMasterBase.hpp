@@ -43,15 +43,15 @@ namespace eModbus {
 		};
 		class ModbusException:public Exception{
 		public:
-			eModbus::Frame::ExceptionCode _exception_code;
-			explicit ModbusException(const eModbus::Frame::ExceptionCode exception_code)
+			eModbus::FrameView::ExceptionCode _exception_code;
+			explicit ModbusException(const eModbus::FrameView::ExceptionCode exception_code)
 			:Exception("Modbus Exception Code "+ std::to_string(exception_code)),_exception_code(exception_code)
 			{};
 		};
 		class InvalidFrame:public Exception{
 		public:
-			eModbus::Frame::ValidationStatus _validation_status;
-			explicit InvalidFrame(const eModbus::Frame::ValidationStatus validation_status)
+			eModbus::FrameView::ValidationStatus _validation_status;
+			explicit InvalidFrame(const eModbus::FrameView::ValidationStatus validation_status)
 			:Exception("Validation Failed Code "+to_string(validation_status)),
 			_validation_status(validation_status)
 			{};
@@ -78,19 +78,19 @@ namespace eModbus {
 
 		void write(uint8_t slave_ID, RegisterType register_type,uint16_t start_address,std::span<uint16_t> values);
 
-		void sendFrame(eModbus::Frame &send_frame, uint16_t timeout_ms) const;
+		void sendFrame(eModbus::FrameView &send_frame, uint16_t timeout_ms) const;
 
-		void receiveFrame(eModbus::Frame &receive_frame, uint16_t timeout_ms) const;
+		void receiveFrame(eModbus::FrameView &receive_frame, uint16_t timeout_ms) const;
 
-		void sendReceiveFrame(eModbus::Frame &send_frame, eModbus::Frame &receive_frame);
+		void sendReceiveFrame(eModbus::FrameView &send_frame, eModbus::FrameView &receive_frame);
 
-		uint32_t getResponseTimeout(eModbus::Frame send_frame, unsigned long baud) const;
+		uint32_t getResponseTimeout(eModbus::FrameView send_frame, uint32_t baud) const;
 
 		uint32_t detectBaud(uint8_t slave_ID, std::span<const uint32_t> baudrates);
 
 		std::map<uint8_t, uint32_t> scanForDevices(std::span<uint32_t> baudrates, uint16_t timeoutMs = 10);
 
-		static Frame::FunctionCode getFunctionCode(bool isRead,RegisterType register_type);
+		static FrameView::FunctionCode getFunctionCode(bool isRead,RegisterType register_type);
 
 	};
 }

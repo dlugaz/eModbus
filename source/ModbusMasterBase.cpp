@@ -63,14 +63,14 @@ void eModbus::MasterBase::write(uint8_t slave_ID, RegisterType register_type, ui
         throw ModbusException(frame.exceptionCode());
 }
 
-void eModbus::MasterBase::sendFrame(eModbus::Frame &send_frame, const uint16_t timeout_ms) const {
+void eModbus::MasterBase::sendFrame(eModbus::FrameView &send_frame, const uint16_t timeout_ms) const {
     const SerialError err = _streamDevice.write(
         isTCP ? send_frame.tcpFrame() : send_frame.rtuFrame(), timeout_ms);
     if (err != SerialError::SUCCESS)
         throw StreamDeviceFailure(err);
 }
 
-void eModbus::MasterBase::receiveFrame(eModbus::Frame &receive_frame,const uint16_t timeout_ms) const {
+void eModbus::MasterBase::receiveFrame(eModbus::FrameView &receive_frame,const uint16_t timeout_ms) const {
     receive_frame.isRequest(false);
     const SerialError err = _streamDevice.read(isTCP ? receive_frame.buffer() : receive_frame.rtuBuffer(),
                                          timeout_ms);
@@ -80,7 +80,7 @@ void eModbus::MasterBase::receiveFrame(eModbus::Frame &receive_frame,const uint1
 
 }
 
-void eModbus::MasterBase::sendReceiveFrame(eModbus::Frame &send_frame, eModbus::Frame &receive_frame) {
+void eModbus::MasterBase::sendReceiveFrame(eModbus::FrameView &send_frame, eModbus::FrameView &receive_frame) {
 
     uint16_t slave_ID = send_frame.slaveID();
     uint32_t baud = 0;
@@ -101,14 +101,14 @@ void eModbus::MasterBase::sendReceiveFrame(eModbus::Frame &send_frame, eModbus::
         throw InvalidFrame(validation);
 }
 
-uint32_t eModbus::MasterBase::getResponseTimeout(eModbus::Frame send_frame, const unsigned long baud) const {
+uint32_t eModbus::MasterBase::getResponseTimeout(eModbus::FrameView send_frame, const uint32_t baud) const {
     return send_frame.calculateResponseTransmissionTimeMs(baud) + deviceResponseTime_ms;
 }
 
 uint32_t eModbus::MasterBase::detectBaud(const uint8_t slave_ID, std::span<const uint32_t> baudrates) {
 
     eModbus::Frame send_frame = eModbus::Frame::build(true, slave_ID, eModbus::Frame::FunctionCode::ReadInputRegisters, 0, 1);
-    eModbus::Frame receive_frame;
+    eModbus::Frame receive_frame(false);
     uint32_t working_baud = 0;
     uint32_t originalBaud = _streamDevice.baudrate();
     if (originalBaud != IStreamDevice::InvalidBaudrate) {

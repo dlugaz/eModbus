@@ -20,9 +20,8 @@ namespace eModbus {
 
 }
 namespace eModbus {
-    template <size_t MAX_MODBUS_FRAME_SIZE = 300>
     class Frame : public FrameView {
-
+    static constexpr size_t MAX_MODBUS_FRAME_SIZE = 300;
     private:
         std::array<uint8_t, MAX_MODBUS_FRAME_SIZE> _internalBuffer = {0};
         std::span<uint8_t> _dataBuffer() override {
@@ -40,9 +39,9 @@ namespace eModbus {
             : FrameView(Frame::_dataBuffer(), view.isRequest(), true)
         {
             if (view.isTCPFrame()) {
-                this->setRawTcpData(view.buffer());
+                this->setRawTcpData(view.buffer(),view.isRequest());
             }else {
-                this->setRawRtuData(view.rtuBuffer());
+                this->setRawRtuData(view.rtuBuffer(),view.isRequest());
             }
             const std::span<const uint8_t> source_buffer = view.buffer();
             const size_t copy_count = std::min(source_buffer.size(), _internalBuffer.size());
@@ -66,17 +65,30 @@ namespace eModbus {
 
 
         static Frame fromRawTcpData(std::span<const uint8_t> TCP_Data, bool isRequest) {
-            Frame result;
+            Frame result(isRequest);
             result.setRawTcpData(TCP_Data, isRequest);
             return result;
         }
 
         static Frame fromRawRtuData(std::span<uint8_t> RTU_Data, bool isRequest) {
-            Frame result;
+            Frame result(isRequest);
             result.setRawRtuData(RTU_Data, isRequest);
             return result;
         }
-
+        static Frame build(bool isRequest, uint8_t slave_ID, FunctionCode function_code, uint16_t start_address,
+                                 uint16_t register_count, std::span<uint16_t> registers_values = {},
+                                 uint16_t transaction_ID = 0) {
+            Frame frame(isRequest);
+            frame.rebuild(isRequest, slave_ID, function_code, start_address, register_count, registers_values,
+                          transaction_ID);
+            return frame;
+        }
+        static Frame buildExceptionResponse(uint8_t slaveID, FunctionCode function_code, ExceptionCode exception_code,
+                                                  uint16_t transaction_ID = 0) {
+            Frame frame(false);
+            frame.rebuildExceptionResponse(slaveID, function_code, exception_code, transaction_ID);
+            return frame;
+        }
 
     };
 
