@@ -17,7 +17,8 @@ FetchContent_MakeAvailable(googletest)
 
 # 3. Create the test executable
 add_executable(eModbus_tests
-        tests/test_main.cpp
+        tests/test_FrameView.cpp
+        tests/test_Frame.cpp
 )
 
 # 4. Link library and GTest
