@@ -125,7 +125,7 @@ class FrameView {
         }
 
         uint16_t calculateModbusCRC()  {
-            return calculateModbusCRC(_dataBuffer().subspan(RTU_HEADER_START_POSITION, RTULengthWithoutCRC()));
+            return calculateModbusCRC(rtuBuffer().subspan(0, RTULengthWithoutCRC()));
         }
 
         void appendCRC() {
@@ -133,20 +133,20 @@ class FrameView {
         }
 
         uint16_t crcPosition()  {
-            return RTU_HEADER_START_POSITION + RTULengthWithoutCRC();
+            return isTCPFrame()?RTU_HEADER_START_POSITION:0 + RTULengthWithoutCRC();
         }
 
         uint16_t crc()  {
-            const uint16_t crcPos = crcPosition();
-            uint16_t crcVal = _dataBuffer()[crcPos] | (_dataBuffer()[crcPos + 1] << 8);
+            const uint16_t crcPos = RTULengthWithoutCRC();
+            uint16_t crcVal = rtuBuffer()[crcPos] | (rtuBuffer()[crcPos + 1] << 8);
             //			return betole(&_dataBuffer()[crcPos]);
             return crcVal;
         }
 
         void crc(uint16_t value) {
-            const uint16_t crcPos = crcPosition();
-            _dataBuffer()[crcPos] = value & 0xFF;
-            _dataBuffer()[crcPos + 1] = (value >> 8) & 0xFF;
+            const uint16_t crcPos = RTULengthWithoutCRC();
+            rtuBuffer()[crcPos] = value & 0xFF;
+            rtuBuffer()[crcPos + 1] = (value >> 8) & 0xFF;
             //			letobe(value,&_dataBuffer()[crcPos]);
         }
 
