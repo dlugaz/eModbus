@@ -33,7 +33,7 @@ namespace eModbus {
         }
 
     public:
-        explicit Frame(bool isRequest) : FrameView(Frame::_dataBuffer(),isRequest,true) {
+        explicit Frame(const bool isRequest) : FrameView(Frame::_dataBuffer(),isRequest,true) {
         };
         explicit Frame(FrameView& view)
             : FrameView(Frame::_dataBuffer(), view.isRequest(), true)
@@ -48,7 +48,7 @@ namespace eModbus {
             std::memcpy(_internalBuffer.data(), source_buffer.data(), copy_count);
         }
 
-        Frame &setRawRtuData(std::span<uint8_t> RTU_Data, bool is_request) {
+        Frame &setRawRtuData(const std::span<uint8_t> RTU_Data, const bool is_request) {
             isRequest(is_request);
             size_t copy_count = std::min(RTU_Data.size(), rtuBuffer().size());
             std::memcpy(rtuBuffer().data(), RTU_Data.data(), copy_count);
@@ -56,7 +56,7 @@ namespace eModbus {
             return *this;
         }
 
-        Frame &setRawTcpData(std::span<const uint8_t> TCP_Data, bool is_request) {
+        Frame &setRawTcpData(const std::span<const uint8_t> TCP_Data, const bool is_request) {
             isRequest(is_request);
             size_t copy_count = std::min(TCP_Data.size(), _dataBuffer().size());
             std::memcpy(_dataBuffer().data(), TCP_Data.data(), copy_count);
@@ -64,27 +64,27 @@ namespace eModbus {
         }
 
 
-        static Frame fromRawTcpData(std::span<const uint8_t> TCP_Data, bool isRequest) {
+        static Frame fromRawTcpData(const std::span<const uint8_t> TCP_Data, const bool isRequest) {
             Frame result(isRequest);
             result.setRawTcpData(TCP_Data, isRequest);
             return result;
         }
 
-        static Frame fromRawRtuData(std::span<uint8_t> RTU_Data, bool isRequest) {
+        static Frame fromRawRtuData(const std::span<uint8_t> RTU_Data, const bool isRequest) {
             Frame result(isRequest);
             result.setRawRtuData(RTU_Data, isRequest);
             return result;
         }
-        static Frame build(bool isRequest, uint8_t slave_ID, FunctionCode function_code, uint16_t start_address,
-                                 uint16_t register_count, std::span<uint16_t> registers_values = {},
-                                 uint16_t transaction_ID = 0) {
+        static Frame build(const bool isRequest,const uint8_t slave_ID,const FunctionCode function_code,const uint16_t start_address,
+                                 const uint16_t register_count, std::span<const uint16_t> registers_values = {},
+                                 const uint16_t transaction_ID = 0) {
             Frame frame(isRequest);
             frame.rebuild(isRequest, slave_ID, function_code, start_address, register_count, registers_values,
                           transaction_ID);
             return frame;
         }
-        static Frame buildExceptionResponse(uint8_t slaveID, FunctionCode function_code, ExceptionCode exception_code,
-                                                  uint16_t transaction_ID = 0) {
+        static Frame buildExceptionResponse(const uint8_t slaveID, const FunctionCode function_code, const ExceptionCode exception_code,
+                                                  const uint16_t transaction_ID = 0) {
             Frame frame(false);
             frame.rebuildExceptionResponse(slaveID, function_code, exception_code, transaction_ID);
             return frame;

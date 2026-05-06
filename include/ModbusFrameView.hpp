@@ -50,7 +50,7 @@ class FrameView {
         }
 
         uint16_t RTULengthWithoutCRC() {
-            int result = calculateRTULength() - CRC_SIZE;
+            const int result = calculateRTULength() - CRC_SIZE;
             return (result >= 0) ? static_cast<uint16_t>(result) : 0;
         }
 
@@ -116,7 +116,7 @@ class FrameView {
 
             uint8_t xor_ = 0;
             uint16_t crc = 0xFFFF;
-            for (uint8_t byte: data) {
+            for (const uint8_t byte: data) {
                 xor_ = byte ^ crc;
                 crc >>= 8;
                 crc ^= table[xor_];
@@ -138,12 +138,12 @@ class FrameView {
 
         uint16_t crc()  {
             const uint16_t crcPos = RTULengthWithoutCRC();
-            uint16_t crcVal = rtuBuffer()[crcPos] | (rtuBuffer()[crcPos + 1] << 8);
+            const uint16_t crcVal = rtuBuffer()[crcPos] | (rtuBuffer()[crcPos + 1] << 8);
             //			return betole(&_dataBuffer()[crcPos]);
             return crcVal;
         }
 
-        void crc(uint16_t value) {
+        void crc(const uint16_t value) {
             const uint16_t crcPos = RTULengthWithoutCRC();
             rtuBuffer()[crcPos] = value & 0xFF;
             rtuBuffer()[crcPos + 1] = (value >> 8) & 0xFF;
@@ -164,7 +164,7 @@ class FrameView {
             }
         }
 
-        explicit FrameView(std::span<uint8_t> buffer, bool request_type, bool isTCP)
+        explicit FrameView(const std::span<uint8_t> buffer, const bool request_type, const bool isTCP)
         : _externalBufferSpan(buffer),_isRequest(request_type), _dataBufferTCP(isTCP) {}
 
 
@@ -172,7 +172,7 @@ class FrameView {
             return _isRequest;
         }
 
-        FrameView &isRequest(bool is_request) {
+        FrameView &isRequest(const bool is_request) {
             _isRequest = is_request;
             return *this;
         }
@@ -188,7 +188,7 @@ class FrameView {
             return betole(&_dataBuffer()[FRAME_POS_TCP::TRANSACTION_ID]);
         }
 
-        FrameView &transactionID(uint16_t value) {
+        FrameView &transactionID(const uint16_t value) {
             throwIfNotTCP();
             letobe(value, &_dataBuffer()[FRAME_POS_TCP::TRANSACTION_ID]);
             return *this;
@@ -199,7 +199,7 @@ class FrameView {
             return betole(&_dataBuffer()[FRAME_POS_TCP::PROTOCOL_ID]);
         }
 
-        FrameView &protocolID(uint16_t value) {
+        FrameView &protocolID(const uint16_t value) {
             throwIfNotTCP();
             letobe(value, &_dataBuffer()[FRAME_POS_TCP::PROTOCOL_ID]);
             return *this;
@@ -210,7 +210,7 @@ class FrameView {
             return betole(&_dataBuffer()[FRAME_POS_TCP::LENGTH]);
         }
 
-        FrameView &MBAPLength(uint16_t value) {
+        FrameView &MBAPLength(const uint16_t value) {
             throwIfNotTCP();
             letobe(value, &_dataBuffer()[FRAME_POS_TCP::LENGTH]);
             return *this;
@@ -227,7 +227,7 @@ class FrameView {
             return len - UNIT_ID_SIZE;
         }
 
-        FrameView &slaveID(uint8_t value) {
+        FrameView &slaveID(const uint8_t value) {
             rtuBuffer()[FRAME_POS_RTU::UNIT_ID] = value;
             return *this;
         }
@@ -240,7 +240,7 @@ class FrameView {
             return static_cast<FunctionCode>(rtuBuffer()[FRAME_POS_RTU::FUNCTION_CODE] & 0x7F);
         }
 
-        FrameView &functionCode(FunctionCode value) {
+        FrameView &functionCode(const FunctionCode value) {
             rtuBuffer()[FRAME_POS_RTU::FUNCTION_CODE] = static_cast<uint8_t>(value);
             return *this;
         }
@@ -270,7 +270,7 @@ class FrameView {
             return betole(&rtuBuffer()[START_ADDRESS]);
         }
 
-        FrameView &startAddress(uint16_t value) {
+        FrameView &startAddress(const uint16_t value) {
             if (hasStartAddress())
                 letobe(value, &rtuBuffer()[START_ADDRESS]);
             return *this;
@@ -296,7 +296,7 @@ class FrameView {
             }
         }
 
-        FrameView &byteCount(uint8_t value) {
+        FrameView &byteCount(const uint8_t value) {
             if (!isException()) {
                 switch (functionCode()) {
                     case ReadCoils:
@@ -341,7 +341,7 @@ class FrameView {
             }
         }
 
-        FrameView &registerCount(uint16_t value) {
+        FrameView &registerCount(const uint16_t value) {
             if (!isException()) {
                 switch (functionCode()) {
                     case ReadCoils:
@@ -379,7 +379,7 @@ class FrameView {
             return (rtuBuffer()[FRAME_POS_RTU::FUNCTION_CODE] & 0x80) != 0;
         }
 
-        FrameView &isException(bool setFlag) {
+        FrameView &isException(const bool setFlag) {
             if (setFlag) {
                 _isRequest = false;
                 rtuBuffer()[FUNCTION_CODE] |= 0x80;
@@ -393,7 +393,7 @@ class FrameView {
             return static_cast<ExceptionCode>(isException() ? rtuBuffer()[EXCEPTION_CODE] : 0);
         }
 
-        FrameView &exceptionCode(ExceptionCode exception_code) {
+        FrameView &exceptionCode(const ExceptionCode exception_code) {
             rtuBuffer()[EXCEPTION_CODE] = exception_code;
             return *this;
         }
@@ -423,14 +423,14 @@ class FrameView {
         ValidationStatus validateCommon() {
             if (rtuBuffer().size() < MINIMAL_RTU_SIZE || rtuBuffer().size()<calculateRTULength())
                 return ValidationStatus::RTUBufferTooShort;
-            uint8_t function_code = static_cast<uint8_t>(functionCode());
+            const uint8_t function_code = static_cast<uint8_t>(functionCode());
             if (function_code == 0)
                 return ValidationStatus::InvalidFunctionCode;
             return ValidationStatus::OK;
         }
 
         ValidationStatus validateRTU() {
-            ValidationStatus commonValidation = validateCommon();
+            const ValidationStatus commonValidation = validateCommon();
             if (commonValidation != ValidationStatus::OK)
                 return commonValidation;
             if (crc() != calculateModbusCRC()) {
@@ -486,7 +486,7 @@ class FrameView {
             return _dataBuffer().subspan(data_pos, byteCount());
         }
 
-        static uint16_t swap_bytes(uint16_t val) {
+        static uint16_t swap_bytes(const uint16_t val) {
             return (val << 8) | (val >> 8);
         }
 
@@ -517,18 +517,18 @@ class FrameView {
                 result.reserve(byte_span.size() * 8); // Reserve for all bits
                 for (unsigned int i = 0; i < byte_span.size() * 8; ++i) {
                     // Corrected iota range
-                    size_t bit_index = i % 8;
-                    size_t byte_index = i / 8;
-                    bool bit_value = (byte_span[byte_index] >> bit_index) & 0x1;
+                    const size_t bit_index = i % 8;
+                    const size_t byte_index = i / 8;
+                    const bool bit_value = (byte_span[byte_index] >> bit_index) & 0x1;
                     result.push_back(static_cast<uint16_t>(bit_value ? 0xFF00 : 0));
                 }
             } else {
                 result.reserve(byte_span.size() / 2);
                 for (unsigned int i = 0; i < byte_span.size() / 2; ++i) {
-                    size_t idx1 = i * 2;
-                    size_t idx2 = i * 2 + 1;
+                    const size_t idx1 = i * 2;
+                    const size_t idx2 = i * 2 + 1;
 
-                    uint16_t val = static_cast<uint16_t>(byte_span[idx1]) |
+                    const uint16_t val = static_cast<uint16_t>(byte_span[idx1]) |
                                    (static_cast<uint16_t>(byte_span[idx2]) << 8); // Assuming little-endian in byte_span
 
                     result.push_back(swap_bytes(val));
@@ -537,11 +537,11 @@ class FrameView {
             return result;
         }
 
-        FrameView &registersValues(std::span<uint16_t> values) {
+        FrameView &registersValues(const std::span<const uint16_t> values) {
             if (hasRegistersValues()) {
                 std::span<uint8_t> registers_data = registersData();
                 for (uint16_t i = 0; i < registers_data.size(); i += 2) {
-                    size_t pos_values = i / 2;
+                    const size_t pos_values = i / 2;
                     if (pos_values >= values.size())
                         break;
                     registers_data[i] = values[pos_values] >> 8;
@@ -556,7 +556,7 @@ class FrameView {
             return calculateRTULength(isException(),_isRequest,functionCode(),byteCount());
         }
 
-        static uint16_t calculateRTULength(bool isException, bool isRequest, FunctionCode functionCode, uint16_t byteCount) {
+        static uint16_t calculateRTULength(const bool isException, const bool isRequest, const FunctionCode functionCode, const uint16_t byteCount) {
             if (isException) {
                 return RTU_HEADER_SIZE + EXCEPTION_CODE_SIZE + CRC_SIZE;
             }
@@ -590,7 +590,7 @@ class FrameView {
             return calculateRTULength(false,true,functionCode(),registerCount()*2);
         }
         int calculateResponseTransmissionTimeMs(const int bitsPerSecond)  {
-            int length = calculateExpectedResponseRTULength();
+            const int length = calculateExpectedResponseRTULength();
             return calculateTransmissionTimeMs(length,bitsPerSecond);
         }
 
@@ -608,9 +608,9 @@ class FrameView {
         }
         //TODO assign registersValues split into request and response
 
-        FrameView &rebuild(bool is_request, uint8_t slave_ID, FunctionCode function_code, uint16_t start_address,
-                             uint16_t register_count, std::span<uint16_t> registers_values = {},
-                             uint16_t transaction_ID = 0) {
+        FrameView &rebuild(const bool is_request, const uint8_t slave_ID, const FunctionCode function_code, const uint16_t start_address,
+                             const uint16_t register_count, const std::span<const uint16_t> registers_values = {},
+                             const uint16_t transaction_ID = 0) {
             isRequest(is_request);
             transactionID(transaction_ID);
             slaveID(slave_ID);
@@ -626,8 +626,8 @@ class FrameView {
             return *this;
         }
 
-        FrameView &rebuildExceptionResponse(uint8_t slave_ID, FunctionCode function_code, ExceptionCode exception_code,
-                                              uint16_t transaction_ID = 0) {
+        FrameView &rebuildExceptionResponse(const uint8_t slave_ID, const FunctionCode function_code, const ExceptionCode exception_code,
+                                              const uint16_t transaction_ID = 0) {
             transactionID(transaction_ID);
             slaveID(slave_ID);
             functionCode(function_code);

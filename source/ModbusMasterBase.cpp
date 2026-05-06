@@ -2,12 +2,7 @@
 // Created by kdluzynski on 12.08.2025.
 //
 #include "ModbusMasterBase.hpp"
-
-#include <map>
-#include <chrono>
-
 #include "ModbusRegisterBuffer.hpp"
-using namespace std::chrono_literals;
 eModbus::MasterBase::MasterBase(IStreamDevice &serial_device):_streamDevice(serial_device) {
 }
 
@@ -32,11 +27,11 @@ std::vector<uint16_t> eModbus::MasterBase::read(const uint8_t slave_ID, const Re
         getFunctionCode(true,register_type),
         start_address,
         quantity);
-    // ModbusFrame receiveFrame{};
-    sendReceiveFrame(frame,frame);
-    if (frame.isException())
-        throw ModbusException(frame.exceptionCode());
-    return frame.registersValues();
+    eModbus::Frame receiveFrame{false};
+    sendReceiveFrame(frame,receiveFrame);
+    if (receiveFrame.isException())
+        throw ModbusException(receiveFrame.exceptionCode());
+    return receiveFrame.registersValues();
 }
 
 void eModbus::MasterBase::read(const uint8_t slave_ID, const eModbus::RegisterBufferView &outBuffer) {
@@ -49,18 +44,18 @@ void eModbus::MasterBase::read(const uint8_t slave_ID, const eModbus::RegisterBu
 }
 
 
-void eModbus::MasterBase::write(uint8_t slave_ID, RegisterType register_type, uint16_t start_address,
-    std::span<uint16_t> values) {
+void eModbus::MasterBase::write(const uint8_t slave_ID,const RegisterType register_type,const uint16_t start_address,
+    std::span<const uint16_t> values) {
     eModbus::Frame frame = eModbus::Frame::build(
         true,
         slave_ID,
         getFunctionCode(false,register_type),
         start_address,
         values.size(),values);
-    // eModbus::Frame receiveFrame{};
-    sendReceiveFrame(frame,frame);
-    if (frame.isException())
-        throw ModbusException(frame.exceptionCode());
+    eModbus::Frame receiveFrame{false};
+    sendReceiveFrame(frame,receiveFrame);
+    if (receiveFrame.isException())
+        throw ModbusException(receiveFrame.exceptionCode());
 }
 
 void eModbus::MasterBase::sendFrame(eModbus::FrameView &send_frame, const uint16_t timeout_ms) const {

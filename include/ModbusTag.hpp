@@ -1,14 +1,10 @@
-//
-// Created by kdluzynski on 07.10.2025.
-//
+#pragma once
 
-#ifndef MODBUSTAG_H
-#define MODBUSTAG_H
-#include <string_view>
-
-#include "ModbusMasterBase.hpp"
+#include "config.hpp"
 namespace eModbus {
+	using TagID = TAGIDTYPE;
     enum class RegisterType;
+
 
     struct Tag {
         enum class modbus_parameter_type:char {
@@ -73,8 +69,7 @@ namespace eModbus {
         bool is_editable;
         std::string default_value;
         std::string category;
-        std::string key;
+        TagID key;
 
     };
 }
-#endif //MODBUSTAG_H

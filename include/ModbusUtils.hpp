@@ -40,8 +40,10 @@ namespace eModbus {
         LSB,
         MSB // Default order is often MSB-first in protocol logic
     };
-
-
+	template<typename T>
+	static constexpr size_t requiredRegisters() {
+		return (sizeof(T) < 2) ? 1 : (sizeof(T) / 2);
+	}
     // Safe Bit Casting: Uses std::bit_cast (C++20) or std::memcpy fallback (pre-C++20)
 #if __cplusplus < 202002L
     template<typename Target, typename Source>

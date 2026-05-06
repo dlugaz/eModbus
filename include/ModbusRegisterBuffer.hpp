@@ -13,7 +13,8 @@
 #include "ModbusUtils.hpp"
 
 namespace eModbus {
-    class RegisterBufferView {
+	class RegisterBufferView {
+
     public:
         using RegistersValueType = uint16_t;
         constexpr explicit RegisterBufferView(const uint16_t& startAddress,RegisterType registerType,const std::span<RegistersValueType> container):
@@ -23,7 +24,7 @@ namespace eModbus {
         constexpr void put(uint16_t modbus_address, const T& value) const{
             // The conversion function must be constexpr
             convertToRegisters<T, Order>(
-                get_buffer_for_address(modbus_address),
+                get_buffer_for_address(modbus_address,requiredRegisters<T>()),
                 value
             );
         }
@@ -31,7 +32,7 @@ namespace eModbus {
         constexpr void put(const Tag& tag, const T& value) const{
             // The conversion function must be constexpr
             convertToRegisters<T, Order>(
-                get_buffer_for_address(tag.register_number),
+                get_buffer_for_address(tag.register_number,tag.register_length),
                 value
             );
         }
@@ -40,16 +41,13 @@ namespace eModbus {
         constexpr T get(uint16_t modbus_address) const {
             // The conversion function must be constexpr
             return convertFromRegisters<T, Order>(
-                get_buffer_for_address(modbus_address)
+                get_buffer_for_address(modbus_address,requiredRegisters<T>())
             );
         }
 
-        template<typename T, eModbus::ByteOrder Order = eModbus::ByteOrder::MSB>
-        constexpr T get(const Tag& tag) const {
-            // The conversion function must be constexpr
-            return convertFromRegisters<T, Order>(
-                get_buffer_for_address(tag.register_number)
-            );
+    	template<typename T, eModbus::ByteOrder Order = eModbus::ByteOrder::MSB>
+		constexpr T get(const Tag& tag) const {
+        	return convertFromRegisters<T, Order>(get_buffer_for_address(tag.register_number,tag.register_length));
         }
 
         template<typename T>
@@ -67,9 +65,17 @@ namespace eModbus {
         constexpr RegisterType registerType() const {
             return registerType_;
         }
-        constexpr std::span<RegistersValueType> get_buffer_for_address(uint16_t modbus_address) const {
-            const uint16_t offset = calculate_offset(modbus_address);
-            return buffer_.subspan(offset);
+        // constexpr std::span<RegistersValueType> get_buffer_for_address(uint16_t modbus_address) const {
+        //     const uint16_t offset = calculate_offset(modbus_address);
+        //     return buffer_.subspan(offset);
+        // }
+    	constexpr std::span<RegistersValueType> get_buffer_for_address(const uint16_t modbus_address, const size_t length) const {
+        	const uint16_t offset = calculate_offset(modbus_address);
+        	const auto longSpan = buffer_.subspan(offset,length);
+        	if (longSpan.size() < length) {
+        		throw std::out_of_range("Buffer insufficient for Tag length");
+        	}
+        	return longSpan.subspan(0, length);
         }
     private:
         const uint16_t startAddress_ = 0;

@@ -76,7 +76,7 @@ namespace eModbus {
 
 		void read(uint8_t slave_ID, const eModbus::RegisterBufferView &outBuffer);
 
-		void write(uint8_t slave_ID, RegisterType register_type,uint16_t start_address,std::span<uint16_t> values);
+		void write(uint8_t slave_ID, RegisterType register_type, uint16_t start_address, std::span<const uint16_t> values);
 
 		void sendFrame(eModbus::FrameView &send_frame, uint16_t timeout_ms) const;
 
