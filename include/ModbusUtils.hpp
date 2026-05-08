@@ -6,9 +6,9 @@
 #include <cstring>   // For std::memcpy (pre-C++20 fallback)
 #include <stdexcept> // For exceptions like std::out_of_range
 #include <algorithm> // For std::fill
-
+#include "config.hpp"
 namespace eModbus {
-    inline char nibbleToHexChar(uint8_t nibble) {
+    inline char nibbleToHexChar(const uint8_t nibble) {
         if (nibble < 10) {
             return '0' + nibble;
         } else {
@@ -16,7 +16,7 @@ namespace eModbus {
         }
     }
 
-    inline std::string toString(std::span<uint8_t> _dataBuffer) {
+    inline std::string toString(const std::span<uint8_t> _dataBuffer) {
         std::string result;
         result.reserve(3 * _dataBuffer.size());
         for (uint8_t byte: _dataBuffer) {
@@ -32,6 +32,7 @@ namespace eModbus {
         DiscreteInput,
         AnalogInput,
         Holding,
+    	Internal
     };
     // --- Configuration and Utilities ---
 
@@ -40,6 +41,9 @@ namespace eModbus {
         LSB,
         MSB // Default order is often MSB-first in protocol logic
     };
+	static constexpr std::array<uint32_t, 10> defaultBaudrates{
+		9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 1000000, 2000000
+	};
 	template<typename T>
 	static constexpr size_t requiredRegisters() {
 		return (sizeof(T) < 2) ? 1 : (sizeof(T) / 2);
@@ -77,7 +81,7 @@ namespace eModbus {
     }
 
     // Utility to split a 32-bit integer into two registers (Standard Modbus Order: MSW, LSW).
-    constexpr void u32ToRegisters(uint32_t source, std::span<uint16_t> registers) {
+    constexpr void u32ToRegisters(const uint32_t source, std::span<uint16_t> registers) {
         if (registers.size() < 2) throw std::out_of_range("Span too small for 32-bit write (need 2 registers).");
         // [0] is MSW, [1] is LSW
         registers[0] = static_cast<uint16_t>(source >> 16);     // MSW
@@ -93,6 +97,11 @@ namespace eModbus {
             result[byte_index++] = getU8LSB(reg);
         }
         return result;
+    }
+
+    template<typename T>
+    constexpr void throwIfTooSmall(const std::span<const uint16_t> registers) {
+	    if (registers.size() < requiredRegisters<T>()) throw std::out_of_range("Registers too small");
     }
 
     // ------------------------------------------------------------------------
@@ -119,22 +128,22 @@ namespace eModbus {
     // Type: float (2 registers)
     template<>
     constexpr float convertFromRegisters<float>(const std::span<const uint16_t> registers) {
-        if (registers.size() < 4 ) throw std::out_of_range("Registers too small");
+		throwIfTooSmall<float>(registers);
         uint32_t combined_u32 = registersToU32(registers);
         return MODBUS_BIT_CAST<float>(combined_u32);
     }
 
     // Type: uint32_t (2 registers)
     template<>
-    constexpr uint32_t convertFromRegisters<uint32_t>(const std::span<const uint16_t> registers) {
-        if (registers.size() < 4 ) throw std::out_of_range("Registers too small");
+    constexpr uint32_t convertFromRegisters<>(const std::span<const uint16_t> registers) {
+		throwIfTooSmall<uint32_t>(registers);
         return registersToU32(registers);
     }
 
     // Type: uint16_t (1 register)
     template<>
     constexpr uint16_t convertFromRegisters<uint16_t>(const std::span<const uint16_t> registers) {
-        if (registers.size() < 1 ) throw std::out_of_range("Registers too small");
+		throwIfTooSmall<uint16_t>(registers);
         return registers[0];
     }
 
@@ -142,7 +151,7 @@ namespace eModbus {
     template<>
     constexpr uint8_t convertFromRegisters<uint8_t, ByteOrder::MSB>(
         const std::span<const uint16_t> registers) {
-        if (registers.size() < 1 ) throw std::out_of_range("Registers too small");
+		throwIfTooSmall<uint8_t>(registers);
         return getU8MSB(registers[0]);
     }
 
@@ -150,13 +159,13 @@ namespace eModbus {
     template<>
     constexpr uint8_t convertFromRegisters<uint8_t, ByteOrder::LSB>(
         const std::span<const uint16_t> registers) {
-        if (registers.size() < 1 ) throw std::out_of_range("Registers too small");
+		throwIfTooSmall<uint8_t>(registers);
         return getU8LSB(registers[0]);
     }
 
     // Type: std::string (N registers)
     template<>
-    constexpr std::string convertFromRegisters<std::string>(const std::span<const uint16_t> registers) {
+    inline std::string convertFromRegisters<std::string>(const std::span<const uint16_t> registers) {
         std::string result;
         result.reserve(registers.size() * 2);
 
@@ -197,30 +206,32 @@ namespace eModbus {
     // Type: uint16_t (1 register)
     template<>
     constexpr void convertToRegisters<uint16_t>(std::span<uint16_t> registers, const uint16_t& source) {
-        if (registers.size() < 1 ) throw std::out_of_range("Registers too small");
+        throwIfTooSmall<uint16_t>(registers);
         registers[0] = source;
     }
 
 
     // Type: float (2 registers)
     template<>
-    constexpr void convertToRegisters<float>(std::span<uint16_t> registers, const float& source) {
-        if (registers.size() < 4 ) throw std::out_of_range("Registers too small");
+    constexpr void convertToRegisters<float>(const std::span<uint16_t> registers, const float& source) {
+		throwIfTooSmall<float>(registers);
         uint32_t combined = MODBUS_BIT_CAST<uint32_t>(source);
         u32ToRegisters(combined, registers);
     }
 
     // Type: uint32_t (2 registers)
     template<>
-    constexpr void convertToRegisters<uint32_t>(std::span<uint16_t> registers, const uint32_t& source) {
-        if (registers.size() < 4 ) throw std::out_of_range("Registers too small");
+    constexpr void convertToRegisters<uint32_t>(const std::span<uint16_t> registers, const uint32_t& source) {
+		throwIfTooSmall<uint32_t>(registers);
         u32ToRegisters(source, registers);
     }
+
+
 
     // Type: uint8_t (MSB) (1 register, preserves LSB)
     template<>
     constexpr void convertToRegisters<uint8_t, ByteOrder::MSB>(std::span<uint16_t> registers, const uint8_t& source) {
-        if (registers.size() < 1 ) throw std::out_of_range("Registers too small");
+        throwIfTooSmall<uint8_t>(registers);
         // Keep LSB (0x00FF), overwrite MSB
         registers[0] = (registers[0] & 0x00FF) | (static_cast<uint16_t>(source) << 8);
     }
@@ -228,7 +239,7 @@ namespace eModbus {
     // Type: uint8_t (LSB) (1 register, preserves MSB)
     template<>
     constexpr void convertToRegisters<uint8_t, ByteOrder::LSB>(std::span<uint16_t> registers, const uint8_t& source) {
-        if (registers.size() < 1 ) throw std::out_of_range("Registers too small");
+        throwIfTooSmall<uint8_t>(registers);
         // Keep MSB (0xFF00), overwrite LSB
         registers[0] = (registers[0] & 0xFF00) | source;
     }

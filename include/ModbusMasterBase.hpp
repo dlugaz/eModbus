@@ -9,15 +9,14 @@
 #define INC_MODBUSMASTERDRIVER_HPP_
 
 
-#include <IStreamDevice.hpp>
 #include <map>
+#include <IStreamDevice.hpp>
 
 #include "ModbusFrame.hpp"
-#include <mutex>
 
 #include "ModbusRegisterBuffer.hpp"
 #include "ModbusUtils.hpp"
-
+#include "config.hpp"
 namespace eModbus {
 	class MasterBase{
 	protected:
@@ -27,9 +26,7 @@ namespace eModbus {
 		std::map<uint8_t,uint32_t> devicesBaudratesMap;
 
 	public:
-		static constexpr std::array<uint32_t, 10> baudrates{
-			9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 1000000, 2000000
-		};
+
 		uint32_t deviceResponseTime_ms = 30;
 		const std::map<uint8_t, uint32_t>& devices_baudrates_map() const {
 			return devicesBaudratesMap;
@@ -88,7 +85,7 @@ namespace eModbus {
 
 		uint32_t detectBaud(uint8_t slave_ID, std::span<const uint32_t> baudrates);
 
-		std::map<uint8_t, uint32_t> scanForDevices(std::span<uint32_t> baudrates, uint16_t timeoutMs = 10);
+		std::map<uint8_t, uint32_t> scanForDevices(std::span<const uint32_t> baudrates, uint16_t timeoutMs = 10);
 
 		static FrameView::FunctionCode getFunctionCode(bool isRead,RegisterType register_type);
 

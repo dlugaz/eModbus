@@ -15,7 +15,7 @@ class FrameView {
         bool _dataBufferTCP = false;
 
         virtual std::span<uint8_t> _dataBuffer() {
-            return std::span<uint8_t> (_externalBufferSpan);
+            return std::span (_externalBufferSpan);
         }
 
         virtual std::span<const uint8_t> _dataBuffer() const {
@@ -49,7 +49,7 @@ class FrameView {
             data[1] = static_cast<uint8_t>((littleendiandata) & 0xFF);
         }
 
-        uint16_t RTULengthWithoutCRC() {
+        uint16_t RTULengthWithoutCRC() const {
             const int result = calculateRTULength() - CRC_SIZE;
             return (result >= 0) ? static_cast<uint16_t>(result) : 0;
         }
@@ -124,7 +124,7 @@ class FrameView {
             return crc;
         }
 
-        uint16_t calculateModbusCRC()  {
+        uint16_t calculateModbusCRC() const {
             return calculateModbusCRC(rtuBuffer().subspan(0, RTULengthWithoutCRC()));
         }
 
@@ -132,14 +132,13 @@ class FrameView {
             crc(calculateModbusCRC());
         }
 
-        uint16_t crcPosition()  {
+        uint16_t crcPosition() const {
             return isTCPFrame()?RTU_HEADER_START_POSITION:0 + RTULengthWithoutCRC();
         }
 
-        uint16_t crc()  {
+        uint16_t crc() const {
             const uint16_t crcPos = RTULengthWithoutCRC();
             const uint16_t crcVal = rtuBuffer()[crcPos] | (rtuBuffer()[crcPos + 1] << 8);
-            //			return betole(&_dataBuffer()[crcPos]);
             return crcVal;
         }
 
@@ -147,7 +146,6 @@ class FrameView {
             const uint16_t crcPos = RTULengthWithoutCRC();
             rtuBuffer()[crcPos] = value & 0xFF;
             rtuBuffer()[crcPos + 1] = (value >> 8) & 0xFF;
-            //			letobe(value,&_dataBuffer()[crcPos]);
         }
 
 
@@ -155,17 +153,21 @@ class FrameView {
             return _dataBuffer();
         }
 
-        std::span<uint8_t> rtuBuffer()  {
-            if (_dataBufferTCP) {
-                return _dataBuffer().subspan(RTU_HEADER_START_POSITION);
-            }
-            else {
-                return _dataBuffer();
-            }
+
+        std::span<const uint8_t> rtuBuffer() const {
+	        if (_dataBufferTCP) {
+		        return _dataBuffer().subspan(RTU_HEADER_START_POSITION);
+	        }
+	        return _dataBuffer();
+        }
+
+        std::span<uint8_t> rtuBuffer() {
+	        auto const_span = static_cast<const FrameView *>(this)->rtuBuffer();
+	        return {const_cast<uint8_t *>(const_span.data()), const_span.size()};
         }
 
         explicit FrameView(const std::span<uint8_t> buffer, const bool request_type, const bool isTCP)
-        : _externalBufferSpan(buffer),_isRequest(request_type), _dataBufferTCP(isTCP) {}
+	        : _externalBufferSpan(buffer), _isRequest(request_type), _dataBufferTCP(isTCP) {}
 
 
         bool isRequest() const {
@@ -217,14 +219,11 @@ class FrameView {
         }
 
         uint16_t RTULength() const {
-            return MBAPLength() + CRC_SIZE;
+        	return calculateRTULength();
         }
 
-        uint16_t pduLength() {
-            uint16_t len = MBAPLength();
-            if (len == 0)
-                len = RTULengthWithoutCRC();
-            return len - UNIT_ID_SIZE;
+        uint16_t pduLength() const {
+        	return RTULengthWithoutCRC() - UNIT_ID_SIZE;
         }
 
         FrameView &slaveID(const uint8_t value) {
@@ -232,11 +231,11 @@ class FrameView {
             return *this;
         }
 
-        uint8_t slaveID(){
+        uint8_t slaveID() const{
             return rtuBuffer()[FRAME_POS_RTU::UNIT_ID];
         }
 
-        FunctionCode functionCode(){
+        FunctionCode functionCode() const{
             return static_cast<FunctionCode>(rtuBuffer()[FRAME_POS_RTU::FUNCTION_CODE] & 0x7F);
         }
 
@@ -245,7 +244,7 @@ class FrameView {
             return *this;
         }
 
-        bool hasStartAddress() {
+        bool hasStartAddress() const {
             if (isException())
                 return false;
             switch (functionCode()) {
@@ -264,7 +263,7 @@ class FrameView {
             }
         }
 
-        uint16_t startAddress() {
+        uint16_t startAddress() const{
             if (!hasStartAddress())
                 return 0;
             return betole(&rtuBuffer()[START_ADDRESS]);
@@ -276,7 +275,7 @@ class FrameView {
             return *this;
         }
 
-        uint16_t byteCount()  {
+        uint16_t byteCount() const  {
             if (isException())
                 return 0;
             switch (functionCode()) {
@@ -320,7 +319,7 @@ class FrameView {
             return *this;
         }
 
-        uint16_t registerCount() {
+        uint16_t registerCount() const {
             if (isException())
                 return 0;
             switch (functionCode()) {
@@ -375,7 +374,7 @@ class FrameView {
             MemoryParityError = 0x08,
         };
 
-        bool isException() {
+        bool isException() const{
             return (rtuBuffer()[FRAME_POS_RTU::FUNCTION_CODE] & 0x80) != 0;
         }
 
@@ -407,6 +406,10 @@ class FrameView {
             InvalidFunctionCode,
             Unknown,
             RTUBufferTooShort,
+            SlaveMismatch,
+            StartAddressMismatch,
+            RegisterCountMismatch,
+            FunctionCodeMismatch,
         };
 
         ValidationStatus validateTCP() {
@@ -420,7 +423,7 @@ class FrameView {
         }
 
 
-        ValidationStatus validateCommon() {
+        ValidationStatus validateCommon() const{
             if (rtuBuffer().size() < MINIMAL_RTU_SIZE || rtuBuffer().size()<calculateRTULength())
                 return ValidationStatus::RTUBufferTooShort;
             const uint8_t function_code = static_cast<uint8_t>(functionCode());
@@ -429,7 +432,7 @@ class FrameView {
             return ValidationStatus::OK;
         }
 
-        ValidationStatus validateRTU() {
+        ValidationStatus validateRTU() const{
             const ValidationStatus commonValidation = validateCommon();
             if (commonValidation != ValidationStatus::OK)
                 return commonValidation;
@@ -438,6 +441,17 @@ class FrameView {
             }
 
             return ValidationStatus::OK;
+        }
+	ValidationStatus validateResponse(const FrameView& send_frame) const {
+        	if (send_frame.slaveID() != slaveID())
+        		return ValidationStatus::SlaveMismatch;
+        	if (hasStartAddress() && (send_frame.startAddress() != startAddress()))
+        		return ValidationStatus::StartAddressMismatch;
+        	if (send_frame.registerCount() != registerCount())
+        		return ValidationStatus::RegisterCountMismatch;
+        	if (send_frame.functionCode() != functionCode())
+        		return ValidationStatus::FunctionCodeMismatch;
+	        return ValidationStatus::OK;
         }
 
         FrameView &clear() {
@@ -461,7 +475,7 @@ class FrameView {
             return _dataBuffer().subspan(0, tcpFrameSize());
         }
 
-        std::span<uint8_t> registersData()  {
+        std::span<const uint8_t> registersData()  const{
             if (!hasRegistersValues())
                 return {};
             uint16_t data_pos = 0;
@@ -483,14 +497,19 @@ class FrameView {
                 default:
                     break;
             }
-            return _dataBuffer().subspan(data_pos, byteCount());
+            return rtuBuffer().subspan(data_pos, byteCount());
+        }
+
+        std::span<uint8_t> registersData() {
+	        auto const_span = static_cast<const FrameView *>(this)->registersData();
+	        return {const_cast<uint8_t *>(const_span.data()), const_span.size()};
         }
 
         static uint16_t swap_bytes(const uint16_t val) {
             return (val << 8) | (val >> 8);
         }
 
-        bool hasRegistersValues() {
+        bool hasRegistersValues() const {
             if (isException())
                 return false;
             switch (functionCode()) {
@@ -510,8 +529,8 @@ class FrameView {
             }
         }
 
-        std::vector<uint16_t> registersValues()  {
-            const std::span<uint8_t> byte_span = registersData(); // Assuming this is valid for the call's duration
+        std::vector<uint16_t> registersValues() const {
+            const std::span<const uint8_t> byte_span = registersData(); // Assuming this is valid for the call's duration
             std::vector<uint16_t> result;
             if (functionCode() == ReadCoils || functionCode() == ReadDiscreteInputs) {
                 result.reserve(byte_span.size() * 8); // Reserve for all bits
@@ -550,9 +569,77 @@ class FrameView {
             }
             return *this;
         }
+        //
+        // FrameView &registersValues(std::span<const uint16_t> newValues, uint16_t registerOffset = 0) {
+	       //  if (!hasRegistersValues()) {
+		      //   return *this;
+	       //  }
+        //
+	       //  std::span<uint8_t> data = registersData();
+	       //  const bool isBitAccess = (functionCode() == ReadCoils || functionCode() == ReadDiscreteInputs);
+        //
+	       //  if (isBitAccess) {
+		      //   // Coil/Discrete Input updates
+		      //   for (size_t i = 0; i < newValues.size(); ++i) {
+			     //    size_t totalBitIndex = (registerOffset + i);
+			     //    size_t byteIndex = totalBitIndex / 8;
+			     //    size_t bitIndex = totalBitIndex % 8;
+        //
+			     //    if (byteIndex >= data.size()) break;
+        //
+			     //    // Modbus convention: 0xFF00 is ON, 0x0000 is OFF
+			     //    if (newValues[i] != 0) {
+				    //     data[byteIndex] |= (1 << bitIndex);
+			     //    } else {
+				    //     data[byteIndex] &= ~(1 << bitIndex);
+			     //    }
+		      //   }
+	       //  } else {
+		      //   // Holding/Input Register updates
+		      //   const size_t startByte = registerOffset * 2;
+		      //   for (size_t i = 0; i < newValues.size(); ++i) {
+			     //    const size_t currentByte = startByte + (i * 2);
+			     //    if (currentByte + 1 >= data.size()) break;
+        //
+			     //    uint16_t val = newValues[i];
+        //
+			     //    // Convert host native to Big-Endian for the wire
+			     //    if constexpr (std::endian::native == std::endian::little) {
+				    //     val = std::byteswap(val);
+			     //    }
+        //
+			     //    std::memcpy(data.data() + currentByte, &val, sizeof(uint16_t));
+		      //   }
+	       //  }
+	       //  return *this;
+        // }
+        //
+        // auto registersView() {
+	       //  std::span<uint8_t> data = registersData();
+	       //  bool isBitAccess = (functionCode() == ReadCoils || functionCode() == ReadDiscreteInputs);
+        //
+	       //  // Determine the number of elements (bits or 16-bit words)
+	       //  size_t count = isBitAccess ? (data.size() * 8) : (data.size() / 2);
+        //
+	       //  return std::views::iota(0ULL, count)
+	       //         | std::views::transform([data, isBitAccess](size_t i) -> uint16_t {
+		      //          if (isBitAccess) {
+			     //           bool bit_value = (data[i / 8] >> (i % 8)) & 0x1;
+			     //           return bit_value ? 0xFF00 : 0x0000;
+		      //          } else {
+			     //           uint16_t val;
+			     //           // Offset is i * 2 bytes per register
+			     //           std::copy_n(data.data() + (i * 2), 2, reinterpret_cast<uint8_t *>(&val));
+        //
+			     //           if constexpr (std::endian::native == std::endian::little) {
+				    //            return std::byteswap(val);
+			     //           }
+			     //           return val;
+		      //          }
+	       //         });
+        // }
 
-
-        uint16_t calculateRTULength() {
+        uint16_t calculateRTULength() const {
             return calculateRTULength(isException(),_isRequest,functionCode(),byteCount());
         }
 
@@ -603,7 +690,7 @@ class FrameView {
             // return (result < 3)?3:result;
             return (result < 0)?0:result;
         }
-        int calculateTransmissionTimeMs(const int bitsPerSecond) {
+        int calculateTransmissionTimeMs(const int bitsPerSecond) const {
             return calculateTransmissionTimeMs(calculateRTULength(),bitsPerSecond);
         }
         //TODO assign registersValues split into request and response

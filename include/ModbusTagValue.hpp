@@ -20,7 +20,7 @@ namespace eModbus {
 		TagValue& operator=(TagValue&&) = default;
 
 		template<typename T>
-		explicit TagValue(const T& value) {
+		TagValue(const T& value) {
 			set(value); // Reuse your existing set logic
 		}
 		// Automatic/Explicit conversion using your template system

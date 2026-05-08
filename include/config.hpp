@@ -1,3 +1,5 @@
 #pragma once
 
-#define TAGIDTYPE CIDs
+namespace eModbus {
+		using TagID = uint32_t;
+}

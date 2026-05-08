@@ -8,10 +8,11 @@
 #include <mutex>
 #include <set>
 #include <variant>
-#include "ModbusMasterBase.hpp"
-#include "ModbusRegisterBuffer.hpp"
+#include "config.hpp"
 #include "ModbusTag.hpp"
 #include "ModbusTagValue.hpp"
+#include "ModbusMasterBase.hpp"
+#include "ModbusRegisterBuffer.hpp"
 /** Use Cases
  * 1. Aktualizacja read wartości - może byc asynchronicznie. Gdy przyjda nowe wartosci to tylko aktualizacja w modelu
  * 2. Synchroniczna sekwencja - np. write, read, write np. przeprowadzenie backupu
@@ -37,7 +38,6 @@ namespace eModbus {
     class MasterTag : public MasterBase {
     public:
         using MasterBase::MasterBase;
-
         using TagMap = std::unordered_map<TagID, size_t>;
         using TagValueMap = std::map<TagID, TagValue>;
 
@@ -109,6 +109,9 @@ namespace eModbus {
 			        	result.emplace(tagID,parser.get<TagValue>(tag));
 			        }
         		} catch (ModbusException &e) {
+        		}
+        		catch (const std::exception &e) {
+        			printf("Modbus exception: %s\n", e.what());
         		}
         	}
         	return result;
@@ -242,7 +245,7 @@ namespace eModbus {
                 const bool registerOffsetLessThanMax = currentRegisterEnd <= eModbus::MAX_MODBUS_REGISTERS;
 
                 //Check if registers are continuous (if they are not, then the modbus client can reject request)
-                const bool registersSpaceContinuous = checkRegistersContinuity(previousTagID, currentTagID);
+                const bool registersSpaceContinuous = true || checkRegistersContinuity(previousTagID, currentTagID);
 
                 //Add new position to existing request
                 if (isSameType && registerOffsetLessThanMax && registersSpaceContinuous) {
@@ -275,7 +278,7 @@ namespace eModbus {
             }
             return excludedRegistersFound;
         }
-
+    protected:
         Tag &getTag(const TagID &tagID) {
             return tagsDatabase[IDtoTagMap.at(tagID)];
         }

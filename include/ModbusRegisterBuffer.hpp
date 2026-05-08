@@ -71,7 +71,8 @@ namespace eModbus {
         // }
     	constexpr std::span<RegistersValueType> get_buffer_for_address(const uint16_t modbus_address, const size_t length) const {
         	const uint16_t offset = calculate_offset(modbus_address);
-        	const auto longSpan = buffer_.subspan(offset,length);
+
+        	const auto longSpan = buffer_.subspan(offset);
         	if (longSpan.size() < length) {
         		throw std::out_of_range("Buffer insufficient for Tag length");
         	}

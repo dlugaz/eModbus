@@ -29,8 +29,7 @@ std::vector<uint16_t> eModbus::MasterBase::read(const uint8_t slave_ID, const Re
         quantity);
     eModbus::Frame receiveFrame{false};
     sendReceiveFrame(frame,receiveFrame);
-    if (receiveFrame.isException())
-        throw ModbusException(receiveFrame.exceptionCode());
+
     return receiveFrame.registersValues();
 }
 
@@ -45,7 +44,7 @@ void eModbus::MasterBase::read(const uint8_t slave_ID, const eModbus::RegisterBu
 
 
 void eModbus::MasterBase::write(const uint8_t slave_ID,const RegisterType register_type,const uint16_t start_address,
-    std::span<const uint16_t> values) {
+    const std::span<const uint16_t> values) {
     eModbus::Frame frame = eModbus::Frame::build(
         true,
         slave_ID,
@@ -54,8 +53,7 @@ void eModbus::MasterBase::write(const uint8_t slave_ID,const RegisterType regist
         values.size(),values);
     eModbus::Frame receiveFrame{false};
     sendReceiveFrame(frame,receiveFrame);
-    if (receiveFrame.isException())
-        throw ModbusException(receiveFrame.exceptionCode());
+
 }
 
 void eModbus::MasterBase::sendFrame(eModbus::FrameView &send_frame, const uint16_t timeout_ms) const {
@@ -81,7 +79,7 @@ void eModbus::MasterBase::sendReceiveFrame(eModbus::FrameView &send_frame, eModb
     uint32_t baud = 0;
 
     if (!devicesBaudratesMap.contains(slave_ID)) {
-        baud = detectBaud(slave_ID, baudrates);
+        baud = detectBaud(slave_ID, defaultBaudrates);
         if (baud == 0)
             throw StreamDeviceFailure(SerialError::TIMEOUT);;
     } else {
@@ -94,13 +92,18 @@ void eModbus::MasterBase::sendReceiveFrame(eModbus::FrameView &send_frame, eModb
     eModbus::Frame::ValidationStatus validation = receive_frame.validateRTU();
     if (validation != eModbus::Frame::ValidationStatus::OK)
         throw InvalidFrame(validation);
+	validation = receive_frame.validateResponse(send_frame);
+	if (validation != eModbus::Frame::ValidationStatus::OK)
+		throw InvalidFrame(validation);
+	if (receive_frame.isException())
+		throw ModbusException(receive_frame.exceptionCode());
 }
 
 uint32_t eModbus::MasterBase::getResponseTimeout(eModbus::FrameView send_frame, const uint32_t baud) const {
     return send_frame.calculateResponseTransmissionTimeMs(baud) + deviceResponseTime_ms;
 }
 
-uint32_t eModbus::MasterBase::detectBaud(const uint8_t slave_ID, std::span<const uint32_t> baudrates) {
+uint32_t eModbus::MasterBase::detectBaud(const uint8_t slave_ID, const std::span<const uint32_t> baudrates) {
 
     eModbus::Frame send_frame = eModbus::Frame::build(true, slave_ID, eModbus::Frame::FunctionCode::ReadInputRegisters, 0, 1);
     eModbus::Frame receive_frame(false);
@@ -154,7 +157,7 @@ uint32_t eModbus::MasterBase::detectBaud(const uint8_t slave_ID, std::span<const
 }
 
 
-std::map<uint8_t, uint32_t> eModbus::MasterBase::scanForDevices(std::span<uint32_t> baudrates, uint16_t timeoutMs) {
+std::map<uint8_t, uint32_t> eModbus::MasterBase::scanForDevices(const std::span<const uint32_t> baudrates,const uint16_t timeoutMs) {
     constexpr int MODBUS_MIN_ADDRESS = 1;
     constexpr int MODBUS_MAX_ADDRESS = 247;
 
@@ -168,7 +171,7 @@ std::map<uint8_t, uint32_t> eModbus::MasterBase::scanForDevices(std::span<uint32
     return devicesBaudratesMap;
 }
 
-eModbus::Frame::FunctionCode eModbus::MasterBase::getFunctionCode(bool isRead, RegisterType register_type) {
+eModbus::Frame::FunctionCode eModbus::MasterBase::getFunctionCode(const bool isRead, const RegisterType register_type) {
     switch(register_type){
         case RegisterType::Coil:
             return isRead?
