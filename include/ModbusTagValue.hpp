@@ -6,7 +6,6 @@
 
 namespace eModbus {
 	class TagValue {
-		// Holds only the registers for THIS specific tag[cite: 1]
 		std::vector<uint16_t> registers;
 
 	public:
@@ -14,16 +13,12 @@ namespace eModbus {
 			: registers(data.begin(), data.end()) {}
 
 		TagValue() = default;
-		TagValue(const TagValue&) = default;
-		TagValue(TagValue&&) = default;
-		TagValue& operator=(const TagValue& v) = default;
-		TagValue& operator=(TagValue&&) = default;
 
-		template<typename T>
-		TagValue(const T& value) {
-			set(value); // Reuse your existing set logic
+		template<typename T, ByteOrder Order = ByteOrder::MSB>
+		explicit TagValue(const T& value) {
+			set<T,Order>(value);
 		}
-		// Automatic/Explicit conversion using your template system
+
 		template<typename T, ByteOrder Order = ByteOrder::MSB>
 		T as() const {
 			if (registers.empty()) {

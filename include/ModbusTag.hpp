@@ -75,7 +75,6 @@ namespace eModbus {
 		StringType options;
 		uint8_t precision;
 		bool is_editable;
-		TagValue default_value;
 		TagID parent;
 		TagID key;
 	};
