@@ -57,20 +57,31 @@ void eModbus::MasterBase::write(const uint8_t slave_ID,const RegisterType regist
 }
 
 void eModbus::MasterBase::sendFrame(eModbus::FrameView &send_frame, const uint16_t timeout_ms) const {
+	_streamDevice.flush();
     const SerialError err = _streamDevice.write(
         isTCP ? send_frame.tcpFrame() : send_frame.rtuFrame(), timeout_ms);
     if (err != SerialError::SUCCESS)
         throw StreamDeviceFailure(err);
 }
 
-void eModbus::MasterBase::receiveFrame(eModbus::FrameView &receive_frame,const uint16_t timeout_ms) const {
+size_t eModbus::MasterBase::receiveFrame(eModbus::FrameView &receive_frame, const uint16_t timeout_ms) const {
     receive_frame.isRequest(false);
-    const SerialError err = _streamDevice.read(isTCP ? receive_frame.buffer() : receive_frame.rtuBuffer(),
-                                         timeout_ms);
-    if (err != SerialError::SUCCESS) {
-        throw StreamDeviceFailure(err);
-    }
+	size_t bytes_read = 0;
+	size_t total_bytes_read = 0;
+	SerialError err = SerialError::SUCCESS;
 
+	do  {
+		auto target_buffer = isTCP ? receive_frame.buffer() : receive_frame.rtuBuffer();
+		target_buffer = target_buffer.subspan(total_bytes_read);
+		err = _streamDevice.read(target_buffer,
+									 timeout_ms,&bytes_read);
+		total_bytes_read += bytes_read;
+		if (err != SerialError::SUCCESS) {
+			throw StreamDeviceFailure(err);
+		}
+	}while (total_bytes_read < receive_frame.RTULength());
+
+	return total_bytes_read;
 }
 
 void eModbus::MasterBase::sendReceiveFrame(eModbus::FrameView &send_frame, eModbus::FrameView &receive_frame) {

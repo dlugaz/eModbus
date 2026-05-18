@@ -412,7 +412,7 @@ class FrameView {
             FunctionCodeMismatch,
         };
 
-        ValidationStatus validateTCP() {
+        ValidationStatus validateTCP() const {
             if (protocolID() != 0)
                 return ValidationStatus::ProtocolIdentifier;
 
@@ -447,7 +447,7 @@ class FrameView {
         		return ValidationStatus::SlaveMismatch;
         	if (hasStartAddress() && (send_frame.startAddress() != startAddress()))
         		return ValidationStatus::StartAddressMismatch;
-        	if (send_frame.registerCount() != registerCount())
+        	if (send_frame.registerCount() != registerCount()&&!isException())
         		return ValidationStatus::RegisterCountMismatch;
         	if (send_frame.functionCode() != functionCode())
         		return ValidationStatus::FunctionCodeMismatch;
@@ -465,7 +465,7 @@ class FrameView {
             return rtuBuffer().subspan(0, rtuLength);
         }
 
-        int tcpFrameSize() {
+        int tcpFrameSize() const {
             return MBAP_HEADER_SIZE + pduLength();
         }
 
@@ -671,12 +671,12 @@ class FrameView {
             };
         }
 
-        uint16_t calculateExpectedResponseRTULength()  {
+        uint16_t calculateExpectedResponseRTULength() const {
             if (!_isRequest)
                 return RTULength();
             return calculateRTULength(false,true,functionCode(),registerCount()*2);
         }
-        int calculateResponseTransmissionTimeMs(const int bitsPerSecond)  {
+        int calculateResponseTransmissionTimeMs(const int bitsPerSecond) const {
             const int length = calculateExpectedResponseRTULength();
             return calculateTransmissionTimeMs(length,bitsPerSecond);
         }
@@ -754,7 +754,20 @@ class FrameView {
             case FrameView::ValidationStatus::InvalidFunctionCode:return "Invalid Function Code";
             case FrameView::ValidationStatus::ProtocolIdentifier:return "Protocol Identifier";
             case FrameView::ValidationStatus::MBAPHeaderLengthInvalid:return "MBAP Header Length Invalid";
-            default: return "Unknown";
+	        case FrameView::ValidationStatus::TransactionID:
+        		return "TransactionID Invalid";
+	        case FrameView::ValidationStatus::RTUBufferTooShort:
+		        return "RTU Buffer Too Short ";
+	        case FrameView::ValidationStatus::SlaveMismatch:
+		        return "Slave Mismatch ";
+	        case FrameView::ValidationStatus::StartAddressMismatch:
+		        return "Start Address Mismatch ";
+	        case FrameView::ValidationStatus::RegisterCountMismatch:
+		        return "Register Count Mismatch ";
+	        case FrameView::ValidationStatus::FunctionCodeMismatch:
+		        return "Function Code Mismatch ";
+        	case FrameView::ValidationStatus::Unknown:
+	        default: return "Unknown";
         }
 
     }

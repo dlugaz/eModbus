@@ -77,7 +77,7 @@ namespace eModbus {
 
 		void sendFrame(eModbus::FrameView &send_frame, uint16_t timeout_ms) const;
 
-		void receiveFrame(eModbus::FrameView &receive_frame, uint16_t timeout_ms) const;
+		size_t receiveFrame(eModbus::FrameView &receive_frame, uint16_t timeout_ms) const;
 
 		void sendReceiveFrame(eModbus::FrameView &send_frame, eModbus::FrameView &receive_frame);
 

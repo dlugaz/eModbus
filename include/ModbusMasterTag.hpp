@@ -132,8 +132,8 @@ namespace eModbus {
 		//
 		//     //return map
 		// }
-
-		void write(const uint8_t slaveID, TagValueMap values, bool oneByOne = true) {
+	//TODO return some result
+		void write(const uint8_t slaveID,const TagValueMap& values, bool oneByOne = true) {
 			for (auto &[tagID,value]: values) {
 				const auto &info = getTag(tagID);
 				MasterBase::write(slaveID, info.register_type, info.register_number, value.data());
