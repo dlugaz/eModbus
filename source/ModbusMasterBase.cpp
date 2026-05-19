@@ -101,11 +101,15 @@ void eModbus::MasterBase::sendReceiveFrame(eModbus::FrameView &send_frame, eModb
     receiveFrame(receive_frame, getResponseTimeout(send_frame, devicesBaudratesMap[slave_ID]));
 
     eModbus::Frame::ValidationStatus validation = receive_frame.validateRTU();
-    if (validation != eModbus::Frame::ValidationStatus::OK)
-        throw InvalidFrame(validation);
+    if (validation != eModbus::Frame::ValidationStatus::OK) {
+    	printf("Receive frame invalid %s",receive_frame.toString().c_str());
+    	throw InvalidFrame(validation);
+    }
 	validation = receive_frame.validateResponse(send_frame);
-	if (validation != eModbus::Frame::ValidationStatus::OK)
+	if (validation != eModbus::Frame::ValidationStatus::OK) {
+		printf("Response Validation failed %s",receive_frame.toString().c_str());
 		throw InvalidFrame(validation);
+	}
 	if (receive_frame.isException())
 		throw ModbusException(receive_frame.exceptionCode());
 }

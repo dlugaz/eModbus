@@ -40,7 +40,7 @@ namespace eModbus {
 		using MasterBase::MasterBase;
 		using TagMap = std::unordered_map<TagID, size_t>;
 		using TagValueMap = std::map<TagID, TagValue>;
-
+		using WriteErrors = std::vector<std::pair<TagID, ModbusException>>;
 		struct Request {
 			RegisterType registerType;
 			uint16_t startAddress;
@@ -74,6 +74,7 @@ namespace eModbus {
 			IDtoTagMap.clear();
 			tagsDatabase.clear();
 			requestCache_.clear();
+			// excludedRegisters.clear();
 		}
 
 		void runPolling();
@@ -97,11 +98,13 @@ namespace eModbus {
 		TagValueMap read(const uint8_t slaveID, std::initializer_list<const TagID> tags) {
 			return read(slaveID, std::span(tags));
 		}
+		TagValue read(const uint8_t slaveID, const TagID tagID) {
+			return read(slaveID,{tagID})[tagID];
+		}
 
 		TagValueMap read(const uint8_t slaveID, const std::span<const TagID> tagIDs) {
-			std::vector<Request> requests = prepareReadRequests(tagIDs);
 			TagValueMap result;
-			std::vector<eModbus::RegisterBufferView> resp;
+			std::vector<Request> requests = prepareReadRequests(tagIDs);
 			for (auto &[registerType, startAddress, quantity,tags]: requests) {
 				try {
 					auto response = MasterBase::read(slaveID, registerType, startAddress,
@@ -113,6 +116,9 @@ namespace eModbus {
 						result.emplace(tagID, parser.get<TagValue>(tag));
 					}
 				} catch (ModbusException &e) {
+					if (e._exception_code == FrameView::IllegalDataAddress||e._exception_code == FrameView::IllegalFunction) {
+						// excludedRegisters[registerType].push_back(startAddress);
+					}
 				} catch (const std::exception &e) {
 					printf("Modbus exception: %s\n", e.what());
 				}
@@ -132,12 +138,21 @@ namespace eModbus {
 		//
 		//     //return map
 		// }
-	//TODO return some result
-		void write(const uint8_t slaveID,const TagValueMap& values, bool oneByOne = true) {
-			for (auto &[tagID,value]: values) {
-				const auto &info = getTag(tagID);
-				MasterBase::write(slaveID, info.register_type, info.register_number, value.data());
+		[[nodiscard]] WriteErrors write(const uint8_t slaveID,const TagValueMap& values, bool oneByOne = true) {
+			WriteErrors writeErrors;
+			if (oneByOne) {
+				for (auto &[tagID,value]: values) {
+					const auto &info = getTag(tagID);
+					try {
+						MasterBase::write(slaveID, info.register_type, info.register_number, value.data());
+					}catch (const ModbusException& modbus_exception) {
+						writeErrors.push_back({tagID, modbus_exception});
+					}
+				}
+			}else {
+				//TODO implement optimal write requests
 			}
+			return writeErrors;
 		}
 
 		static MasterTag TCP(IStreamDevice &serial_device) {
@@ -237,7 +252,9 @@ namespace eModbus {
 			}
 			return nullptr;
 		}
-
+		std::vector<Request> prepareReadRequests(std::initializer_list<const TagID> tags) {
+			return prepareReadRequests(std::span(tags));
+		}
 		std::vector<Request> prepareReadRequests(const std::span<const TagID> tags) {
 			std::vector<Request> requests;
 
