@@ -241,16 +241,17 @@ namespace eModbus {
 		}
 
 
-		std::vector<Request>* findRequestInCache(const std::span<const TagID> tags) {
-			std::vector sortedTags(tags.begin(), tags.end());
-			sortTags(sortedTags);
-
-			size_t tagHash = calculateTagHash(sortedTags);
-			auto it = requestCache_.find(tagHash);
+		std::vector<Request>* findRequestInCache(const std::span<const TagID> sortedTags) {
+			const size_t tagHash = calculateTagHash(sortedTags);
+			const auto it = requestCache_.find(tagHash);
 			if (it != requestCache_.end()) {
 				return &it->second;
 			}
 			return nullptr;
+		}
+		void addRequestsToCache(const std::span<const TagID> sortedTags,const std::vector<Request> &requests) {
+			const size_t tagHash = calculateTagHash(sortedTags);
+			requestCache_.insert({tagHash,requests});
 		}
 		std::vector<Request> prepareReadRequests(std::initializer_list<const TagID> tags) {
 			return prepareReadRequests(std::span(tags));
@@ -261,13 +262,14 @@ namespace eModbus {
 			if (tags.empty()) {
 				return requests;
 			}
-
-			if (auto* cachedRequests = findRequestInCache(tags)) {
+			std::vector sortedTags(tags.begin(), tags.end());
+			sortTags(sortedTags);
+			if (auto* cachedRequests = findRequestInCache(sortedTags)) {
 				return *cachedRequests;
 			}
 
-			const TagID previousTagID{};
-			for (const TagID &currentTagID: tags) {
+			TagID previousTagID{};
+			for (const TagID &currentTagID: sortedTags) {
 				if (!IDtoTagMap.contains(currentTagID))
 					continue;
 				if (excludedTags.contains(currentTagID))
@@ -310,6 +312,7 @@ namespace eModbus {
 				}
 			}
 
+			addRequestsToCache(sortedTags,requests);
 			return requests;
 		}
 
