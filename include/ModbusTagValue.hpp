@@ -24,7 +24,6 @@ namespace eModbus {
 			if (registers.empty()) {
 				throw std::runtime_error("TagValue contains no data");
 			}
-			// Uses the existing specialization mechanism[cite: 2, 3]
 			return convertFromRegisters<T, Order>(registers);
 		}
 		template<typename T, ByteOrder Order = ByteOrder::MSB>

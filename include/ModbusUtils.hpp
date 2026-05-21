@@ -19,7 +19,7 @@ namespace eModbus {
     inline std::string toString(const std::span<uint8_t> _dataBuffer) {
         std::string result;
         result.reserve(3 * _dataBuffer.size());
-        for (uint8_t byte: _dataBuffer) {
+        for (const uint8_t byte: _dataBuffer) {
             result += nibbleToHexChar(byte >> 4);
             result += nibbleToHexChar(byte & 0x0F);
             result += ' ';
@@ -111,13 +111,23 @@ namespace eModbus {
     // Read: Returns value by copy. Uses ByteOrder::MSB as default for non-8-bit types.
     template<typename T, ByteOrder Order = ByteOrder::MSB>
     constexpr T convertFromRegisters(const std::span<const uint16_t> registers) {
-        return static_cast<T>(registers[0]);
+		if constexpr (sizeof(T) == 2) {
+			return static_cast<T>(registers[0]);
+		}
+		if constexpr (sizeof(T) == 4) {
+			return convertFromRegisters<uint32_t>(registers);
+		}
     }
 
     // Write: Returns void (performs side effect). Uses ByteOrder::MSB as default.
     template<typename T, ByteOrder Order = ByteOrder::MSB>
     constexpr void convertToRegisters(std::span<uint16_t> registers, const T& source) {
-        registers[0] = static_cast<uint16_t>(source);
+		if constexpr (sizeof(T) == 2) {
+			registers[0] = static_cast<uint16_t>(source);
+		}
+		if constexpr (sizeof(T) == 4) {
+			convertToRegisters<uint32_t>(registers, source);
+		}
     }
 
 
@@ -129,13 +139,13 @@ namespace eModbus {
     template<>
     constexpr float convertFromRegisters<float>(const std::span<const uint16_t> registers) {
 		throwIfTooSmall<float>(registers);
-        uint32_t combined_u32 = registersToU32(registers);
+        const uint32_t combined_u32 = registersToU32(registers);
         return MODBUS_BIT_CAST<float>(combined_u32);
     }
 
     // Type: uint32_t (2 registers)
     template<>
-    constexpr uint32_t convertFromRegisters<>(const std::span<const uint16_t> registers) {
+    constexpr uint32_t convertFromRegisters<uint32_t>(const std::span<const uint16_t> registers) {
 		throwIfTooSmall<uint32_t>(registers);
         return registersToU32(registers);
     }
@@ -169,9 +179,9 @@ namespace eModbus {
         std::string result;
         result.reserve(registers.size() * 2);
 
-        for (uint16_t reg : registers) {
-            char msb = static_cast<char>(getU8MSB(reg));
-            char lsb = static_cast<char>(getU8LSB(reg));
+        for (const uint16_t reg : registers) {
+            const char msb = static_cast<char>(getU8MSB(reg));
+            const char lsb = static_cast<char>(getU8LSB(reg));
 
             // Stop on null terminator, otherwise append.
             if (msb == 0) break;
@@ -187,9 +197,9 @@ namespace eModbus {
         std::vector<uint8_t> result;
         result.reserve(registers.size() * 2);
 
-        for (uint16_t reg : registers) {
-            char msb = static_cast<char>(getU8MSB(reg));
-            char lsb = static_cast<char>(getU8LSB(reg));
+        for (const uint16_t reg : registers) {
+            const char msb = static_cast<char>(getU8MSB(reg));
+            const char lsb = static_cast<char>(getU8LSB(reg));
 
             result.push_back(msb);
             result.push_back(lsb);
@@ -215,7 +225,7 @@ namespace eModbus {
     template<>
     constexpr void convertToRegisters<float>(const std::span<uint16_t> registers, const float& source) {
 		throwIfTooSmall<float>(registers);
-        uint32_t combined = MODBUS_BIT_CAST<uint32_t>(source);
+        const uint32_t combined = MODBUS_BIT_CAST<uint32_t>(source);
         u32ToRegisters(combined, registers);
     }
 
@@ -248,7 +258,7 @@ namespace eModbus {
     template<>
     constexpr void convertToRegisters<std::string>(std::span<uint16_t> registers, const std::string& source) {
         size_t char_index = 0;
-        size_t max_chars = registers.size() * 2;
+        const size_t max_chars = registers.size() * 2;
         if (max_chars < source.length() ) throw std::out_of_range("Registers too small");
         // Fill the destination with zero to ensure null termination/padding
         std::fill(registers.begin(), registers.end(), 0x0000);
