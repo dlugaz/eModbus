@@ -18,7 +18,7 @@ namespace eModbus {
     public:
         using RegistersValueType = uint16_t;
         constexpr explicit RegisterBufferView(const uint16_t& startAddress,RegisterType registerType,const std::span<RegistersValueType> container):
-        startAddress_ {startAddress},registerType_{registerType}, buffer_{container}{}
+        startAddress_ {startAddress},buffer_{container}, registerType_{registerType}{}
 
         template<typename T, eModbus::ByteOrder Order = eModbus::ByteOrder::MSB>
         constexpr void put(uint16_t modbus_address, const T& value) const{
