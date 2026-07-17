@@ -17,11 +17,11 @@ namespace eModbus {
 
     public:
         using RegistersValueType = uint16_t;
-        constexpr explicit RegisterBufferView(const uint16_t& startAddress,RegisterType registerType,const std::span<RegistersValueType> container):
+        constexpr explicit RegisterBufferView(const uint16_t& startAddress, const RegisterType registerType,const std::span<RegistersValueType> container):
         startAddress_ {startAddress},buffer_{container}, registerType_{registerType}{}
 
         template<typename T, eModbus::ByteOrder Order = eModbus::ByteOrder::MSB>
-        constexpr void put(uint16_t modbus_address, const T& value) const{
+        constexpr void put(const uint16_t modbus_address, const T& value) const{
             // The conversion function must be constexpr
             convertToRegisters<T, Order>(
                 get_buffer_for_address(modbus_address,requiredRegisters<T>()),
@@ -38,7 +38,7 @@ namespace eModbus {
         }
 
         template<typename T, eModbus::ByteOrder Order = eModbus::ByteOrder::MSB>
-        constexpr T get(uint16_t modbus_address) const {
+        constexpr T get(const uint16_t modbus_address) const {
             // The conversion function must be constexpr
             return convertFromRegisters<T, Order>(
                 get_buffer_for_address(modbus_address,requiredRegisters<T>())
@@ -51,9 +51,26 @@ namespace eModbus {
         }
 
         template<typename T>
-        constexpr void get_into(uint16_t modbus_address, T &destination) const
+        constexpr void get_into(const uint16_t modbus_address, T &destination) const
         {
-            destination = get<T>(modbus_address);
+            convertFromRegistersTo(get_buffer_for_address(modbus_address,requiredRegisters<T>()),destination);
+        }
+	    template<typename ElementType, std::size_t Extent>
+        constexpr void get_into(const uint16_t modbus_address, std::span<ElementType, Extent> destination) const
+        {
+            // Note: You must calculate required registers based on the span's byte size,
+            // not sizeof(std::span), which only measures the pointer and size variables.
+            const size_t bytes = destination.size_bytes();
+            const size_t regs = (bytes < 2) ? 1 : (bytes / 2);
+
+            convertFromRegistersTo(get_buffer_for_address(modbus_address, regs), destination);
+        }
+
+	    template<typename ElementType, std::size_t N>
+        constexpr void get_into(const uint16_t modbus_address, ElementType (&destination)[N]) const
+        {
+            // Wrap the array in a span and forward it to overload #2
+            get_into(modbus_address, std::span<ElementType, N>(destination));
         }
 
         constexpr uint16_t startAddress() const {
@@ -84,7 +101,7 @@ namespace eModbus {
         const RegisterType registerType_;
 
 
-        constexpr uint16_t calculate_offset(uint16_t modbus_address) const {
+        constexpr uint16_t calculate_offset(const uint16_t modbus_address) const {
             if (modbus_address < startAddress_) {
                 throw std::out_of_range("Modbus address is below buffer start address.");
             }
@@ -102,30 +119,31 @@ namespace eModbus {
     public:
         using RegistersValueType = uint16_t;
 
-        // Constructor now properly sizes the vector before creating a view
-        RegisterBuffer(uint16_t startAddress, RegisterType registerType, uint16_t numRegisters)
+        RegisterBuffer(const uint16_t startAddress, const RegisterType registerType, const uint16_t numRegisters)
             : startAddress_{startAddress},
                 registerType_(registerType),
-              registersValue_(numRegisters) // 1. The vector is created and sized.
+              registersValue_(numRegisters)
         {
-            // Now registersValue_ is valid and will not reallocate unexpectedly.
         }
 
-        // Provide a method to get a non-owning view
         RegisterBufferView view() {
             return RegisterBufferView(startAddress_,registerType_, registersValue_);
         }
 
-        // For convenience, you can forward the most common methods.
-        // This still avoids code duplication by calling the view's implementation.
         template<typename T, eModbus::ByteOrder Order = eModbus::ByteOrder::MSB>
-        constexpr void put(uint16_t modbus_address, const T& value) {
+        constexpr void put(const uint16_t modbus_address, const T& value) {
             view().put<T, Order>(modbus_address, value);
         }
 
         template<typename T, eModbus::ByteOrder Order = eModbus::ByteOrder::MSB>
-        constexpr T get(uint16_t modbus_address){
+        constexpr T get(const uint16_t modbus_address){
             return view().get<T, Order>(modbus_address);
+        }
+
+        template<typename T, eModbus::ByteOrder Order = eModbus::ByteOrder::MSB>
+        constexpr void get_into(uint16_t modbus_address, T &destination)
+        {
+            view().get_into<T, Order>(modbus_address,destination);
         }
 
         uint16_t startAddress_;

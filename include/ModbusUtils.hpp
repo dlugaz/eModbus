@@ -1,6 +1,4 @@
 #pragma once
-#include <cstdint>
-#include <cmath>
 #include <span>      // For std::span (C++20)
 #include <bit>       // For std::bit_cast (C++20)
 #include <cstring>   // For std::memcpy (pre-C++20 fallback)
@@ -108,16 +106,25 @@ namespace eModbus {
     // PRIMARY TEMPLATES (The Public Interface)
     // ------------------------------------------------------------------------
 
-    // Read: Returns value by copy. Uses ByteOrder::MSB as default for non-8-bit types.
+    template<typename T, ByteOrder Order = ByteOrder::MSB>
+        constexpr void convertFromRegistersTo(const std::span<const uint16_t> registers, T& destination) {
+	    if constexpr (sizeof(T) == 2) {
+	        destination = static_cast<T>(registers[0]);
+	    }
+	    else if constexpr (sizeof(T) == 4) {
+	        uint32_t temp = 0;
+	        convertFromRegistersTo<uint32_t>(registers, temp);
+	        destination = MODBUS_BIT_CAST<T>(temp);
+	    }
+	}
+
+    // Preserved Interface: Returns value by copy.
     template<typename T, ByteOrder Order = ByteOrder::MSB>
     constexpr T convertFromRegisters(const std::span<const uint16_t> registers) {
-		if constexpr (sizeof(T) == 2) {
-			return static_cast<T>(registers[0]);
-		}
-		if constexpr (sizeof(T) == 4) {
-			return convertFromRegisters<uint32_t>(registers);
-		}
-    }
+	    T destination{};
+	    convertFromRegistersTo<T, Order>(registers, destination);
+	    return destination;
+	}
 
     // Write: Returns void (performs side effect). Uses ByteOrder::MSB as default.
     template<typename T, ByteOrder Order = ByteOrder::MSB>
@@ -135,76 +142,69 @@ namespace eModbus {
     // ** Specialized `convertFromModbusRegisters` (Read - Return by Value) **
     // ------------------------------------------------------------------------
 
-    // Type: float (2 registers)
     template<>
-    constexpr float convertFromRegisters<float>(const std::span<const uint16_t> registers) {
-		throwIfTooSmall<float>(registers);
+    constexpr void convertFromRegistersTo<float>(const std::span<const uint16_t> registers, float& destination) {
+        throwIfTooSmall<float>(registers);
         const uint32_t combined_u32 = registersToU32(registers);
-        return MODBUS_BIT_CAST<float>(combined_u32);
+        destination = MODBUS_BIT_CAST<float>(combined_u32);
     }
 
     // Type: uint32_t (2 registers)
     template<>
-    constexpr uint32_t convertFromRegisters<uint32_t>(const std::span<const uint16_t> registers) {
-		throwIfTooSmall<uint32_t>(registers);
-        return registersToU32(registers);
+    constexpr void convertFromRegistersTo<uint32_t>(const std::span<const uint16_t> registers, uint32_t& destination) {
+        throwIfTooSmall<uint32_t>(registers);
+        destination = registersToU32(registers);
     }
 
     // Type: uint16_t (1 register)
     template<>
-    constexpr uint16_t convertFromRegisters<uint16_t>(const std::span<const uint16_t> registers) {
-		throwIfTooSmall<uint16_t>(registers);
-        return registers[0];
+    constexpr void convertFromRegistersTo<uint16_t>(const std::span<const uint16_t> registers, uint16_t& destination) {
+        throwIfTooSmall<uint16_t>(registers);
+        destination = registers[0];
     }
 
     // Type: uint8_t (MSB) (1 register, specific byte order)
     template<>
-    constexpr uint8_t convertFromRegisters<uint8_t, ByteOrder::MSB>(
-        const std::span<const uint16_t> registers) {
-		throwIfTooSmall<uint8_t>(registers);
-        return getU8MSB(registers[0]);
+    constexpr void convertFromRegistersTo<uint8_t, ByteOrder::MSB>(const std::span<const uint16_t> registers, uint8_t& destination) {
+        throwIfTooSmall<uint8_t>(registers);
+        destination = getU8MSB(registers[0]);
     }
 
     // Type: uint8_t (LSB) (1 register, specific byte order)
     template<>
-    constexpr uint8_t convertFromRegisters<uint8_t, ByteOrder::LSB>(
-        const std::span<const uint16_t> registers) {
-		throwIfTooSmall<uint8_t>(registers);
-        return getU8LSB(registers[0]);
+    constexpr void convertFromRegistersTo<uint8_t, ByteOrder::LSB>(const std::span<const uint16_t> registers, uint8_t& destination) {
+        throwIfTooSmall<uint8_t>(registers);
+        destination = getU8LSB(registers[0]);
     }
 
     // Type: std::string (N registers)
     template<>
-    inline std::string convertFromRegisters<std::string>(const std::span<const uint16_t> registers) {
-        std::string result;
-        result.reserve(registers.size() * 2);
+    inline void convertFromRegistersTo<std::string>(const std::span<const uint16_t> registers, std::string& destination) {
+        destination.clear();
+        destination.reserve(registers.size() * 2);
 
         for (const uint16_t reg : registers) {
             const char msb = static_cast<char>(getU8MSB(reg));
             const char lsb = static_cast<char>(getU8LSB(reg));
 
-            // Stop on null terminator, otherwise append.
             if (msb == 0) break;
-            result += msb;
+            destination += msb;
 
             if (lsb == 0) break;
-            result += lsb;
+            destination += lsb;
         }
-        return result;
     }
+
+    // Type: std::vector<uint8_t> (N registers)
     template<>
-    constexpr std::vector<uint8_t> convertFromRegisters<std::vector<uint8_t>>(const std::span<const uint16_t> registers) {
-        std::vector<uint8_t> result;
-        result.reserve(registers.size() * 2);
+    constexpr void convertFromRegistersTo<std::vector<uint8_t>>(const std::span<const uint16_t> registers, std::vector<uint8_t>& destination) {
+        destination.clear();
+        destination.reserve(registers.size() * 2);
 
         for (const uint16_t reg : registers) {
-            const char msb = static_cast<char>(getU8MSB(reg));
-            const char lsb = static_cast<char>(getU8LSB(reg));
-
-            result.push_back(msb);
-            result.push_back(lsb);
+            destination.push_back(getU8MSB(reg));
+            destination.push_back(getU8LSB(reg));
         }
-        return result;
     }
 
 
