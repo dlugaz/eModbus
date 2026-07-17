@@ -53,23 +53,17 @@ namespace eModbus {
         template<typename T>
         constexpr void get_into(const uint16_t modbus_address, T &destination) const
         {
-            convertFromRegistersTo(get_buffer_for_address(modbus_address,requiredRegisters<T>()),destination);
+            convertFromRegistersTo(get_buffer_for_address(modbus_address,requiredRegisters(destination)),destination);
         }
 	    template<typename ElementType, std::size_t Extent>
         constexpr void get_into(const uint16_t modbus_address, std::span<ElementType, Extent> destination) const
         {
-            // Note: You must calculate required registers based on the span's byte size,
-            // not sizeof(std::span), which only measures the pointer and size variables.
-            const size_t bytes = destination.size_bytes();
-            const size_t regs = (bytes < 2) ? 1 : (bytes / 2);
-
-            convertFromRegistersTo(get_buffer_for_address(modbus_address, regs), destination);
+            convertFromRegistersTo(get_buffer_for_address(modbus_address, requiredRegisters(destination)), destination);
         }
 
 	    template<typename ElementType, std::size_t N>
         constexpr void get_into(const uint16_t modbus_address, ElementType (&destination)[N]) const
         {
-            // Wrap the array in a span and forward it to overload #2
             get_into(modbus_address, std::span<ElementType, N>(destination));
         }
 

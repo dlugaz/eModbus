@@ -42,10 +42,21 @@ namespace eModbus {
 	static constexpr std::array<uint32_t, 10> defaultBaudrates{
 		9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 1000000, 2000000
 	};
-	template<typename T>
-	static constexpr size_t requiredRegisters() {
-		return (sizeof(T) < 2) ? 1 : (sizeof(T) / 2);
-	}
+    template<typename T>
+    static constexpr size_t requiredRegisters() {
+        return (sizeof(T) < 2) ? 1 : (sizeof(T) / 2);
+    }
+
+    template<typename T>
+    static constexpr size_t requiredRegisters(const T&) {
+        return requiredRegisters<T>();
+    }
+
+    template<typename R> requires std::ranges::contiguous_range<R>
+    static constexpr size_t requiredRegisters(const R& range) {
+        const size_t bytes = std::ranges::size(range) * sizeof(std::ranges::range_value_t<R>);
+        return (bytes == 0) ? 0 : (bytes < 2) ? 1 : (bytes / 2);
+    }
     // Safe Bit Casting: Uses std::bit_cast (C++20) or std::memcpy fallback (pre-C++20)
 #if __cplusplus < 202002L
     template<typename Target, typename Source>
