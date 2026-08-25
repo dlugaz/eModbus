@@ -110,8 +110,6 @@ void eModbus::MasterBase::sendReceiveFrame(eModbus::FrameView &send_frame, eModb
 		printf("Response Validation failed %s",receive_frame.toString().c_str());
 		throw InvalidFrame(validation);
 	}
-	if (receive_frame.isException())
-		throw ModbusException(receive_frame.exceptionCode());
 }
 
 uint32_t eModbus::MasterBase::getResponseTimeout(eModbus::FrameView send_frame, const uint32_t baud) const {

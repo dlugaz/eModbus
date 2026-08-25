@@ -49,7 +49,7 @@ namespace eModbus {
 		public:
 			eModbus::FrameView::ValidationStatus _validation_status;
 			explicit InvalidFrame(const eModbus::FrameView::ValidationStatus validation_status)
-			:Exception("Validation Failed Code "+to_string(validation_status)),
+			:Exception("Validation Failed: "+to_string(validation_status)),
 			_validation_status(validation_status)
 			{};
 		};
@@ -57,7 +57,7 @@ namespace eModbus {
 		public:
 			SerialError _device_error;
 			explicit StreamDeviceFailure(const SerialError device_error)
-			:Exception("Stream Failure Code:" + to_string(device_error)),
+			:Exception("Stream Failure:" + to_string(device_error)),
 			_device_error(device_error)
 			{};
 		};
