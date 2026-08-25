@@ -79,7 +79,7 @@ size_t eModbus::MasterBase::receiveFrame(eModbus::FrameView &receive_frame, cons
 		if (err != SerialError::SUCCESS) {
 			throw StreamDeviceFailure(err);
 		}
-	}while (total_bytes_read < receive_frame.RTULength());
+	}while (bytes_read && total_bytes_read < receive_frame.RTULength());
 
 	return total_bytes_read;
 }

@@ -24,7 +24,7 @@ namespace eModbus {
         constexpr void put(const uint16_t modbus_address, const T& value) const{
             // The conversion function must be constexpr
             convertToRegisters<T, Order>(
-                get_buffer_for_address(modbus_address,requiredRegisters<T>()),
+                get_buffer_for_address(modbus_address,requiredRegisters<T>(value)),
                 value
             );
         }

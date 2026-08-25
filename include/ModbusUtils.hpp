@@ -43,20 +43,23 @@ namespace eModbus {
 		9600, 19200, 38400, 57600, 115200, 230400, 460800, 921600, 1000000, 2000000
 	};
     template<typename T>
-    static constexpr size_t requiredRegisters() {
+    static  size_t requiredRegisters() {
         return (sizeof(T) < 2) ? 1 : (sizeof(T) / 2);
     }
 
     template<typename T>
-    static constexpr size_t requiredRegisters(const T&) {
-        return requiredRegisters<T>();
+    static size_t requiredRegisters(const T& value) {
+        if constexpr (std::ranges::contiguous_range<T>) {
+            const size_t bytes = std::ranges::size(value) * sizeof(std::ranges::range_value_t<T>);
+            return (bytes == 0) ? 0 : (bytes < 2) ? 1 : (bytes / 2);
+        }else {
+            return requiredRegisters<T>();
+        }
     }
-
-    template<typename R> requires std::ranges::contiguous_range<R>
-    static constexpr size_t requiredRegisters(const R& range) {
-        const size_t bytes = std::ranges::size(range) * sizeof(std::ranges::range_value_t<R>);
-        return (bytes == 0) ? 0 : (bytes < 2) ? 1 : (bytes / 2);
-    }
+    static_assert(std::ranges::contiguous_range<std::span<uint8_t>>);
+    static_assert(std::ranges::contiguous_range<std::span<uint8_t, 4>>);
+    inline std::array<uint8_t, 4> arr{};
+    // static_assert(requiredRegisters(std::span<uint8_t>(arr))==2);
     // Safe Bit Casting: Uses std::bit_cast (C++20) or std::memcpy fallback (pre-C++20)
 #if __cplusplus < 202002L
     template<typename Target, typename Source>
@@ -76,10 +79,10 @@ namespace eModbus {
     constexpr uint8_t getU8LSB(const uint16_t registerValue) { return static_cast<uint8_t>(registerValue & 0xFF); }
 
     constexpr void setU8LSB(uint16_t& currentRegisterValue, const uint16_t u8Value) {
-        currentRegisterValue = static_cast<uint16_t>((currentRegisterValue & ~(0xFF00)) | u8Value);
+        currentRegisterValue = static_cast<uint16_t>(currentRegisterValue  | u8Value);
     }
     constexpr void setU8MSB(uint16_t& currentRegisterValue, const uint16_t u8Value) {
-        currentRegisterValue = static_cast<uint16_t>((currentRegisterValue & ~(0x00FF)) | u8Value<<8);
+        currentRegisterValue = static_cast<uint16_t>(currentRegisterValue  | u8Value<<8);
     }
 
     // Utility to combine two registers into a 32-bit integer (Standard Modbus Order: MSW, LSW).
@@ -307,6 +310,24 @@ namespace eModbus {
             byte_idx++;
             if (byte_idx < bytes_to_process) {
                 setU8LSB(registers[reg_idx],source[byte_idx]);
+                byte_idx++;
+            }
+        }
+    }
+    template<>
+    constexpr void convertToRegisters<std::span<uint8_t>>(std::span<uint16_t> registers, const std::span<uint8_t>& source) {
+
+        const size_t max_regs = registers.size();
+        const size_t max_bytes_to_write = max_regs * 2;
+        const size_t source_byte_count = source.size();
+        const size_t bytes_to_process = std::min(source_byte_count, max_bytes_to_write);
+        if (max_bytes_to_write < source.size() ) throw std::out_of_range("Registers too small");
+        size_t byte_idx = 0;
+        for (size_t reg_idx = 0; byte_idx < bytes_to_process; reg_idx++) {
+            setU8LSB(registers[reg_idx],source[byte_idx]);
+            byte_idx++;
+            if (byte_idx < bytes_to_process) {
+                setU8MSB(registers[reg_idx],source[byte_idx]);
                 byte_idx++;
             }
         }

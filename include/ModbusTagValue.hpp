@@ -28,7 +28,7 @@ namespace eModbus {
 		}
 		template<typename T, ByteOrder Order = ByteOrder::MSB>
 		void set(const T& value) {
-			size_t numRegs = requiredRegisters<T>();
+			size_t numRegs = requiredRegisters<T>(value);
 
 			if (registers.size() < numRegs) {
 				registers.resize(numRegs);
